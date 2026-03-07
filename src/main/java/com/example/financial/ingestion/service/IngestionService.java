@@ -55,8 +55,9 @@ public class IngestionService {
             int transactionCount = 0;
             while ((line = reader.readLine()) != null) {
                 try {
-                    TransactionReceivedEvent event = parseLine(line);
+                    TransactionReceivedEvent event = parseLine(line, transactionCount);
                     publish(event);
+                    log.info("Transaction: {}, successfully published", transactionCount);
                     transactionCount++;
                 } catch (Exception e) {
                     log.error("Failed to process line: {} | Error: {}", line, e.getMessage());
@@ -81,18 +82,20 @@ public class IngestionService {
        
     }
 
-    private TransactionReceivedEvent parseLine(String line) {
+    private TransactionReceivedEvent parseLine(String line, int row) {
         String[] parts = line.split(",");
 
         if (parts.length < 5) {
-            throw new IllegalArgumentException("Invalid for in row");
+            var output = "Invalid format in row: " + row;
+            throw new IllegalArgumentException(output);
         } 
 
-        TransactionReceivedEvent event = new TransactionReceivedEvent();
-        event.setTransactionId(UUID.fromString(parts[0]));
-        event.setAccountId(parts[1]);
-        event.setAmount(new BigDecimal(parts[2]));
-        event.setTimestamp(Instant.now());
+        var event = TransactionReceivedEvent.builder()
+            .transactionId(UUID.fromString(parts[0]))
+            .accountId(parts[1])
+            .amount(new BigDecimal(parts[2]))
+            .timestamp(Instant.now()).build();
+        log.info("Transaction with id: {}, successfully ingested", parts[0]);
         return event;
     }
     

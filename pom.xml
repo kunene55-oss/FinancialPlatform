@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.example.financial</groupId>
 	<artifactId>ingestion-service</artifactId>
-	<version>0.0.2-SNAPSHOT</version>
+	<version>0.0.3-SNAPSHOT</version>
 	<name>ingestion-service</name>
 	<description>Demo project for Ingestion service</description>
 	<url/>
@@ -92,7 +92,7 @@
 		<dependency>
 			<groupId>com.example.financial</groupId>
 			<artifactId>common_module</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
+			<version>0.0.2-SNAPSHOT</version>
     	</dependency>
 	</dependencies>
 	<dependencyManagement>
