@@ -1,27 +1,18 @@
 package com.example.financial.processing.messaging;
 
-import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
-import com.example.financial.processing.repository.TransactionRepository;
-import com.example.financial.processing.domain.TransactionEntity;
+import org.springframework.stereotype.Component;
 import org.springframework.kafka.annotation.KafkaListener;
-import com.example.financial.ingestion.dto.TransactionReceivedEvent;
+import com.example.financial.processing.service.TransactionProcessingService;
+import com.example.financial.common.event.TransactionReceivedEvent;
 
-@Service
 @RequiredArgsConstructor
+@Component
 public class TransactionConsumer {
-    private final TransactionRepository transactionRepository;
+    private final TransactionProcessingService service;
 
-    @KafkaListener(topics ="", groupId = "")
+    @KafkaListener(topics = "transactions.raw")
     public void consume(TransactionReceivedEvent event) {
-        TransactionEntity tx = new TransactionEntity();
-        tx.setAccount(event.accountId);
-        tx.setAmount(event.amount());
-        tx.setMerchant(event.merchant());
-        tx.setTimestamp(event.timestamp());
-        tx.setCategory("GROCERIES");
-
-        transactionRepository.save(tx);
+        service.process(event);
     }
-    
 }

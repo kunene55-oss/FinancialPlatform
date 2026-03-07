@@ -2,6 +2,9 @@ package com.example.financial.processing.domain;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Builder;
+import com.example.financial.common.type.TransactionStatus;
+import com.example.financial.common.type.TransactionType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -11,14 +14,19 @@ import java.util.UUID;
 @Entity
 @Table(name = "transactions")
 @Data
+@Builder
 public class TransactionEntity {
     @Id
     @GeneratedValue
     private UUID id;
 
+    private UUID transactionId;
     private String accountId;
     private BigDecimal amount;
     private String merchant;
-    private String category;
+    private TransactionType category;
+    private TransactionStatus status;
+    private String descriptions;
     private Instant timestamp;
+
 }
