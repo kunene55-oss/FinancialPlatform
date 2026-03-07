@@ -10,9 +10,9 @@
 	</parent>
 	<groupId>com.example.financial</groupId>
 	<artifactId>common_module</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<name>common_module</name>
-	<description>Demo project for Spring Boot</description>
+	<description>Demo project Common Module</description>
 	<url/>
 	<developers>
 		<developer/>
@@ -30,6 +30,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
         
         <!-- Optional: Lombok -->
