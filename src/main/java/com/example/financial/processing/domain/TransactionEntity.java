@@ -10,15 +10,13 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-
 @Entity
 @Table(name = "transactions")
 @Data
 @Builder
 public class TransactionEntity {
     @Id
-    @GeneratedValue
-    private UUID id;
+    private final UUID id = UUID.randomUUID();
 
     private UUID transactionId;
     private String accountId;
