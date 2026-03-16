@@ -5,9 +5,11 @@ import com.example.financial.common.type.TransactionStatus;
 import com.example.financial.processing.domain.TransactionEntity;
 import com.example.financial.processing.repository.TransactionRepository;
 
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TransactionProcessingService {
@@ -15,7 +17,7 @@ public class TransactionProcessingService {
 
     public void process(TransactionReceivedEvent event) {
         if (repo.findByTransactionId(event.getTransactionId()).isPresent()) {
-            //add logging here
+            log.error("Transaction {} has already been processed.", event.getTransactionId());
             return;
         }
 
