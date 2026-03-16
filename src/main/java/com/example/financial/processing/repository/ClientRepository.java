@@ -5,8 +5,9 @@ import org.springframework.stereotype.Repository;
 import com.example.financial.processing.domain.ClientEntity;
 
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface ClientRepository extends JpaRepository<ClientEntity, UUID> {
-    
+    Optional<ClientEntity> findByIdNumber(Long idNumber);
 }

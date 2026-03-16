@@ -5,6 +5,7 @@ import lombok.Builder;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import org.springframework.data.annotation.*;
+import com.example.financial.processing.domain.AccountStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -23,6 +24,8 @@ public class ClientEntity {
 
     private String firstName;
     private String lastName;
+    private Long idNumber;
+    private AccountStatus status;
 
     @Builder.Default
     private BigDecimal balance = BigDecimal.ZERO;
