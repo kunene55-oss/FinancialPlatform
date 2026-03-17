@@ -4,6 +4,8 @@ import com.example.financial.common.event.TransactionReceivedEvent;
 import com.example.financial.common.type.TransactionStatus;
 import com.example.financial.processing.domain.TransactionEntity;
 import com.example.financial.processing.repository.TransactionRepository;
+import com.example.financial.processing.service.AccountService;
+
 
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class TransactionProcessingService {
     private final TransactionRepository repo;
+    private final AccountService accountService;
 
     public void process(TransactionReceivedEvent event) {
         if (repo.findByTransactionId(event.getTransactionId()).isPresent()) {
@@ -26,8 +29,9 @@ public class TransactionProcessingService {
             .accountId(event.getAccountId())
             .amount(event.getAmount())
             .category(event.getType())
-            .status(TransactionStatus.PROCESSED)
+            .status(TransactionStatus.PROCESSING)
             .build();
         repo.save(entity);
+        accountService.processTransaction(entity);
     }
 }
