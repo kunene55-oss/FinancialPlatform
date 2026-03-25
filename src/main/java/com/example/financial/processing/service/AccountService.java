@@ -28,23 +28,25 @@ public class AccountService {
            log.error("Key information is missing from client profile please check details");
            throw new IllegalArgumentException("Name, Surname and ID number can not be null");
         }
-        clientRepo.findByIdNumber(idNumber)
-            .ifPresentOrElse( client -> {
-                    log.warn("Client with ID number: {} already exists", idNumber); 
-                },
-                () -> {
-                    ClientEntity acc = ClientEntity.builder()
+        var client = clientRepo.findByIdNumber(idNumber);
+        if (client.isPresent()) {
+            log.error("Client account for ID number {} already present in DB", idNumber);
+            throw new DataIntegrityViolationException(String.format("Client with Id %s already exists", idNumber));
+        }
+        try {
+            ClientEntity acc = ClientEntity.builder()
                         .firstName(name)
                         .lastName(surname)
                         .idNumber(idNumber)
                         .accountStatus(AccountStatus.OPEN)
                         .build();
                     
-                    log.info("Account successfully created");
-                    clientRepo.save(acc);
-                }
-            );
-        
+            log.info("Account successfully created");
+            clientRepo.save(acc);
+        } catch (Exception ex) {
+            log.error("Conflict account {} due to DB constraints", ex);
+            throw ex;
+        }
     }
     
     @Transactional
@@ -95,7 +97,7 @@ public class AccountService {
             throw ex;
         }
     }
-    //public void updateClient(){}
+   
     @Transactional
     public void processTransaction(final TransactionEntity entity) {
         var client = clientRepo.findByAccountId(entity.getAccountId()).get();
@@ -150,7 +152,7 @@ public class AccountService {
                 repo.save(entity);
                 break;
             }
-        };
+        }
     }
     
 }
