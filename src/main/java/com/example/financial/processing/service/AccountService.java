@@ -7,11 +7,12 @@ import com.example.financial.common.type.TransactionType;
 import com.example.financial.processing.domain.TransactionEntity;
 import com.example.financial.common.type.TransactionStatus;
 import com.example.financial.processing.repository.TransactionRepository;
-
-
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 
 @Slf4j
@@ -21,12 +22,16 @@ public class AccountService {
     private final ClientRepository clientRepo;
     private final TransactionRepository repo;
 
+    @Transactional
     public void createAccount(final String name, final String surname, final Long idNumber ){
         if (name == null || surname == null || idNumber == null){
-            return;
+           log.error("Key information is missing from client profile please check details");
+           throw new IllegalArgumentException("Name, Surname and ID number can not be null");
         }
         clientRepo.findByIdNumber(idNumber)
-            .ifPresentOrElse( client -> log.warn("Client with ID number: {} already exists", idNumber),
+            .ifPresentOrElse( client -> {
+                    log.warn("Client with ID number: {} already exists", idNumber); 
+                },
                 () -> {
                     ClientEntity acc = ClientEntity.builder()
                         .firstName(name)
@@ -41,38 +46,58 @@ public class AccountService {
             );
         
     }
-    public void createPreloadedAccount(final String firstName, final String lastName, final BigDecimal amount){
-        return;
-    }
     
+    @Transactional
     public void deleteAccount(String accountId) {
-        clientRepo.findByAccountId(accountId)
-            .ifPresentOrElse(client -> {
-                log.info("Client account {} is present in DB", accountId);
-                clientRepo.deleteByAccountId(accountId);
-                log.info("Account successfully removed");
-            }, () -> {
+        if (accountId == null || accountId.isBlank()) {
+            log.warn("Account ID is required to deleted account");
+            throw new IllegalArgumentException("Account ID cannot be null or empty");
+        }
+        var client = clientRepo.findByAccountId(accountId)
+            .orElseThrow(() -> {
                 log.error("Client account {} not present in DB", accountId);
+                return new EntityNotFoundException(String.format("No client with accountId %s exists", accountId));
             });
+        try {
+            log.info("Deleting account: {}", accountId);
+            clientRepo.delete(client);
+            log.info("Account {} successfully deleted", accountId);
+        } catch (DataIntegrityViolationException ex) {
+            log.error("Conflict deleting account {} due to DB constraints", accountId, ex);
+            throw ex;
+        }
+        
     }
 
+    @Transactional
     public void updateAccountStatus(String accountId, AccountStatus status ) {
-        clientRepo.findByAccountId(accountId)
-            .ifPresentOrElse(client -> {
-                if (client.getAccountStatus() == status) {
-                    log.warn("Account {} is already in status {}", accountId, status);
-                    return;
-                }
-                log.info("Client account {} is present in DB", accountId);
+        if (accountId == null || accountId.isBlank()) {
+            log.warn("Account ID is required to deleted account");
+            throw new IllegalArgumentException("Account ID cannot be null or empty");
+        }
+        
+        var client = clientRepo.findByAccountId(accountId).orElseThrow(() -> {
+                log.error("Client account {} not present in DB", accountId);
+                throw new EntityNotFoundException(String.format("No client with accountId %s exists", accountId));
+            });
+
+        try {
+            if (client.getAccountStatus() == status){
+                log.warn("Account {} is already in status {}", accountId, status);
+                throw new DataIntegrityViolationException("Conflict deleting account {} due to DB constraints");
+            } 
+            log.info("Client account {} is present in DB", accountId);
                 client.setAccountStatus(status);
                 clientRepo.save(client);
                 log.info("Account status successfully updated to {}", status);
-            }, () -> {
-                log.error("Client account {} not present in DB", accountId);
-            });
+        } catch (DataIntegrityViolationException ex) {
+            log.error("Conflict deleting account {} due to DB constraints", accountId, ex);
+            throw ex;
+        }
     }
     //public void updateClient(){}
-    public void processTransaction(final TransactionEntity entity){//final BigDecimal amount, final String accountNumber, final TransactionType type){
+    @Transactional
+    public void processTransaction(final TransactionEntity entity) {
         var client = clientRepo.findByAccountId(entity.getAccountId()).get();
         if (client == null) {
             log.error("Client does not exist, transaction cannot be processed");

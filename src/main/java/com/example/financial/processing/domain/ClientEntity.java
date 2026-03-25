@@ -1,4 +1,4 @@
-package com.example.financial.processing.domain;
+package com.example.financial.processing.domain; 
 
 import lombok.Data;
 import lombok.Builder;
