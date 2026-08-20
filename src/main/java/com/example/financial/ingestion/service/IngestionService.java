@@ -1,6 +1,7 @@
 package com.example.financial.ingestion.service;
 
 import com.example.financial.common.event.TransactionReceivedEvent;
+import com.example.financial.common.type.TransactionType;
 import com.example.financial.ingestion.util.FileValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +30,11 @@ public class IngestionService {
 
 
     public void publish(final TransactionReceivedEvent event) {
-        if (event.getTransactionId().toString() != null ) {
-            kafkaTemplate.send("transaction.raw", event.getTransactionId().toString(), event);
-        } 
+        if (event.getTransactionId() == null) {
+            log.error("Cannot publish event with null transactionId");
+            return;
+        }
+        kafkaTemplate.send("transactions.raw", event.getTransactionId().toString(), event);
     }
 
 
@@ -58,7 +61,7 @@ public class IngestionService {
                     TransactionReceivedEvent event = parseLine(line, transactionCount);
                     publish(event);
                     log.info("Transaction: {}, successfully published", transactionCount);
-                    transactionCount++;
+                    transactionCount++; 
                 } catch (Exception e) {
                     log.error("Failed to process line: {} | Error: {}", line, e.getMessage());
                 }
@@ -94,6 +97,7 @@ public class IngestionService {
             .transactionId(UUID.fromString(parts[0]))
             .accountId(parts[1])
             .amount(new BigDecimal(parts[2]))
+            .type(TransactionType.valueOf(parts[3].trim().toUpperCase()))
             .timestamp(Instant.now()).build();
         log.info("Transaction with id: {}, successfully ingested", parts[0]);
         return event;

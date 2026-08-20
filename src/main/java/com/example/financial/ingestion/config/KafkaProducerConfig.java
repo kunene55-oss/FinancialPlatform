@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.springframework.kafka.core.*;
-import com.example.financial.ingestion.dto.TransactionReceivedEvent;
+import com.example.financial.common.event.TransactionReceivedEvent;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
