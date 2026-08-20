@@ -22,8 +22,13 @@ public class TransactionEntity {
     private String accountId;
     private BigDecimal amount;
     private String merchant;
+
+    @Enumerated(EnumType.STRING)
     private TransactionType category;
+
+    @Enumerated(EnumType.STRING)
     private TransactionStatus status;
+
     private String descriptions;
     private Instant timestamp;
 

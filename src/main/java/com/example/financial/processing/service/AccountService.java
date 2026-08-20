@@ -83,24 +83,19 @@ public class AccountService {
                 throw new EntityNotFoundException(String.format("No client with accountId %s exists", accountId));
             });
 
-        try {
-            if (client.getAccountStatus() == status){
-                log.warn("Account {} is already in status {}", accountId, status);
-                throw new DataIntegrityViolationException("Conflict deleting account {} due to DB constraints");
-            } 
-            log.info("Client account {} is present in DB", accountId);
-                client.setAccountStatus(status);
-                clientRepo.save(client);
-                log.info("Account status successfully updated to {}", status);
-        } catch (DataIntegrityViolationException ex) {
-            log.error("Conflict deleting account {} due to DB constraints", accountId, ex);
-            throw ex;
+        if (client.getAccountStatus() == status){
+            log.warn("Account {} is already in status {}", accountId, status);
+            throw new IllegalStateException(String.format("Account %s is already in status %s", accountId, status));
         }
+        log.info("Client account {} is present in DB", accountId);
+        client.setAccountStatus(status);
+        clientRepo.save(client);
+        log.info("Account status successfully updated to {}", status);
     }
    
     @Transactional
     public void processTransaction(final TransactionEntity entity) {
-        var client = clientRepo.findByAccountId(entity.getAccountId()).get();
+        var client = clientRepo.findByAccountId(entity.getAccountId()).orElse(null);
         if (client == null) {
             log.error("Client does not exist, transaction cannot be processed");
             return;

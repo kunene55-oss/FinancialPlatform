@@ -3,4 +3,10 @@ spring:
     name: processing-service
 
   config:
-    import: optional:configserver:http://localhost:8888
+    import: optional:configserver:http://configserver:8888
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri:

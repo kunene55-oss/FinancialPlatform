@@ -3,6 +3,8 @@ package com.example.financial.processing.domain;
 import lombok.Data;
 import lombok.Builder;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import org.springframework.data.annotation.*;
 import jakarta.validation.constraints.NotNull;
@@ -29,6 +31,8 @@ public class ClientEntity {
     private String lastName;
     @NotNull
     private Long idNumber;
+
+    @Enumerated(EnumType.STRING)
     private AccountStatus accountStatus;
 
     @Builder.Default
