@@ -3,6 +3,8 @@ package com.example.financial.processing.domain;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import com.example.financial.common.type.TransactionStatus;
 import com.example.financial.common.type.TransactionType;
 
@@ -14,6 +16,8 @@ import java.util.UUID;
 @Table(name = "transactions")
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TransactionEntity {
     @Id
     private final UUID id = UUID.randomUUID();
