@@ -5,11 +5,15 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Id;
 import lombok.Data;
 import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Entity
 @Table(name = "files")
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class FileEntity {
     
         @Id

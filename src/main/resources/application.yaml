@@ -1,6 +1,16 @@
 spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri:
+  application:
+    name: ingestion-service
+
+  config:
+    import:
+      - optional:configserver:http://configserver:8888
+      - vault://
+
+  cloud:
+    vault:
+      host: vault
+      port: 8200
+      scheme: http
+      authentication: TOKEN
+      token: root
