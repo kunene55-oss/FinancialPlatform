@@ -13,7 +13,8 @@ CREATE TABLE transactions (
 
 CREATE TABLE files (
     file_hash VARCHAR(255) PRIMARY KEY,
-    transaction_count INTEGER
+    transaction_count INTEGER,
+    status VARCHAR(255)
 );
 
 CREATE TABLE clients (

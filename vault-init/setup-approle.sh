@@ -22,7 +22,7 @@ vault write database/roles/ingestion-service-db \
 
 vault write database/roles/processing-service-db \
   db_name=postgres \
-  creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT USAGE ON SCHEMA public TO \"{{name}}\"; GRANT SELECT, INSERT, UPDATE, DELETE ON transactions, clients TO \"{{name}}\";" \
+  creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT USAGE ON SCHEMA public TO \"{{name}}\"; GRANT SELECT, INSERT, UPDATE, DELETE ON transactions, clients TO \"{{name}}\"; GRANT USAGE, SELECT ON SEQUENCE account_number_seq TO \"{{name}}\";" \
   default_ttl=4h \
   max_ttl=24h
 

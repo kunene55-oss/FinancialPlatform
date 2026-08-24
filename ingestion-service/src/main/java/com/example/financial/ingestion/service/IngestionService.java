@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import com.example.financial.ingestion.database.entities.FileEntity;
+import com.example.financial.ingestion.database.entities.FileStatus;
 import com.example.financial.ingestion.database.repository.FileRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -43,34 +45,50 @@ public class IngestionService {
         FileValidator.validate(file.getOriginalFilename());
         String hash = hash(file);
 
-        if (fileRepo.findByFileHash(hash).isPresent()) {
-            throw new IllegalStateException("File has already been processed");
+        var entity = FileEntity.builder()
+            .fileHash(hash)
+            .status(FileStatus.PROCESSING)
+            .transactionCount(0)
+            .build();
+        try {
+            fileRepo.save(entity);
+        } catch (DataIntegrityViolationException e) {
+            var existingStatus = fileRepo.findByFileHash(hash)
+                .map(FileEntity::getStatus)
+                .orElse(null);
+            throw new IllegalStateException(
+                "File has already been processed or is currently being processed (status: " + existingStatus + ")");
         }
-        var entity = FileEntity.builder().fileHash(hash).build();
-        
 
-        try(BufferedReader reader = 
+        int transactionCount = 0;
+        try(BufferedReader reader =
                 new BufferedReader(
                     new InputStreamReader(
                         file.getInputStream()
-                    ))) 
+                    )))
         {
             String line;
-            int transactionCount = 0;
             while ((line = reader.readLine()) != null) {
+                TransactionReceivedEvent event;
                 try {
-                    TransactionReceivedEvent event = parseLine(line, transactionCount);
-                    publish(event);
-                    log.info("Transaction: {}, successfully published", transactionCount);
-                    transactionCount++; 
+                    event = parseLine(line, transactionCount);
                 } catch (Exception e) {
-                    log.error("Failed to process line: {} | Error: {}", line, e.getMessage());
+                    log.error("Failed to parse line: {} | Error: {}", line, e.getMessage());
+                    continue;
                 }
+                publish(event);
+                log.info("Transaction: {}, successfully published", transactionCount);
+                transactionCount++;
             }
+            entity.setStatus(FileStatus.COMPLETED);
             entity.setTransactionCount(transactionCount);
             fileRepo.save(entity);
 
         } catch (Exception e) {
+            log.error("File ingestion aborted for hash {} after {} transactions", hash, transactionCount, e);
+            entity.setStatus(FileStatus.FAILED);
+            entity.setTransactionCount(transactionCount);
+            fileRepo.save(entity);
             throw new RuntimeException(e);
         }
     }

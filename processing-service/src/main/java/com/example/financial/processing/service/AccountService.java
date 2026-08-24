@@ -100,11 +100,15 @@ public class AccountService {
         var client = clientRepo.findByAccountId(entity.getAccountId()).orElse(null);
         if (client == null) {
             log.error("Client does not exist, transaction cannot be processed");
+            entity.setStatus(TransactionStatus.FAILED);
+            repo.save(entity);
             return;
         }
 
         if (client.getAccountStatus() != AccountStatus.OPEN) {
             log.error("Account {} is in status {}. Please check account", client.getAccountId(), client.getAccountStatus());
+            entity.setStatus(TransactionStatus.FAILED);
+            repo.save(entity);
             return;
         }
         var balance = client.getBalance();
@@ -124,7 +128,7 @@ public class AccountService {
                 break;
             }
             case TransactionType.TRANSFER: {
-                if ((balance.subtract(amount)).compareTo(BigDecimal.ZERO) <= 0){
+                if ((balance.subtract(amount)).compareTo(BigDecimal.ZERO) < 0){
                     log.error("Account {} does not have enough funds available for transfer", entity.getAccountId());
                     entity.setStatus(TransactionStatus.FAILED);
                     repo.save(entity);

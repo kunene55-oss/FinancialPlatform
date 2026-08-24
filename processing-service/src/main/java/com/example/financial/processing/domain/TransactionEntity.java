@@ -35,7 +35,7 @@ public class TransactionEntity {
     @Enumerated(EnumType.STRING)
     private TransactionStatus status;
 
-    private String descriptions;
+    private String description;
     private Instant timestamp;
 
 }
