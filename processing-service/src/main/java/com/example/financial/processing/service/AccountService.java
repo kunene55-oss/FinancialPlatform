@@ -34,14 +34,16 @@ public class AccountService {
             throw new DataIntegrityViolationException(String.format("Client with Id %s already exists", idNumber));
         }
         try {
+            String accountId = String.valueOf(clientRepo.nextAccountNumber());
             ClientEntity acc = ClientEntity.builder()
+                        .accountId(accountId)
                         .firstName(name)
                         .lastName(surname)
                         .idNumber(idNumber)
                         .accountStatus(AccountStatus.OPEN)
                         .build();
-                    
-            log.info("Account successfully created");
+
+            log.info("Account successfully created with accountId {}", accountId);
             clientRepo.save(acc);
         } catch (Exception ex) {
             log.error("Conflict account {} due to DB constraints", ex);

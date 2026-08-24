@@ -30,11 +30,12 @@ public class IngestionService {
 
 
     public void publish(final TransactionReceivedEvent event) {
-        if (event.getTransactionId() == null) {
-            log.error("Cannot publish event with null transactionId");
-            return;
+        try {
+            kafkaTemplate.send("transactions.raw", event.getTransactionId().toString(), event).get();
+        } catch (Exception e) {
+            log.error("Failed to publish event with transactionId {}", event.getTransactionId(), e);
+            throw new RuntimeException("Failed to publish transaction event", e);
         }
-        kafkaTemplate.send("transactions.raw", event.getTransactionId().toString(), event);
     }
 
 

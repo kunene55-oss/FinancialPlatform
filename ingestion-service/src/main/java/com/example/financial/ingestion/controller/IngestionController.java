@@ -1,6 +1,9 @@
 package com.example.financial.ingestion.controller;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import com.example.financial.ingestion.service.IngestionService;
@@ -12,12 +15,13 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/ingest")
 @RequiredArgsConstructor
 public class IngestionController {
-    
+
     private final IngestionService ingestionService;
 
     @PostMapping("/ingestEvent")
-    public void ingestEvent(@RequestBody final TransactionReceivedEvent event) {
+    public ResponseEntity<Void> ingestEvent(@Valid @RequestBody final TransactionReceivedEvent event) {
         ingestionService.publish(event);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
     
     @PostMapping("/fileUpload")

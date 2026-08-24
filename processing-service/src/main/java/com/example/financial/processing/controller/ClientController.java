@@ -40,6 +40,7 @@ public class ClientController {
                 schema = @Schema(implementation = ErrorResponse.class)
             ))
     })
+    @PreAuthorize("hasRole('account-admin')")
     public void createClient(@RequestBody CreationRequest details) {
         service.createAccount(details.firstName(), details.lastName(), details.idNumber());
     }

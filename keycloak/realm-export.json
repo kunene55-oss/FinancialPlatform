@@ -31,6 +31,10 @@
         {
           "name": "account-admin",
           "description": "Allowed to delete/close/suspend/freeze client accounts"
+        },
+        {
+          "name": "account-read",
+          "description": "Allowed to request account aggregation summaries"
         }
       ]
     }

@@ -13,6 +13,6 @@ public class TransactionConsumer {
 
     @KafkaListener(topics = "transactions.raw", groupId = "costumGroup")
     public void consume(TransactionReceivedEvent event) {
-        service.process(event);
+        service.processTransaction(event);
     }
 }

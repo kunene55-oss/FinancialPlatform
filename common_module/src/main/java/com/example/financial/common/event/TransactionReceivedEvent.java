@@ -21,6 +21,7 @@ public class TransactionReceivedEvent {
     @NotNull(message = "TransactionId cannot be null")
     private UUID transactionId;
 
+    @NotNull(message = "AccountId cannot be null")
     private String accountId;
 
     @NotNull(message = "Transaction amount cannot be null")

@@ -1,6 +1,7 @@
 package com.example.financial.aggregation.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import com.example.financial.aggregation.repository.AggregationRepository;
 
@@ -12,10 +13,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @RequestMapping("/aggregations")
 public class AggregationController {
-    
+
     private final AggregationRepository repository;
 
     @GetMapping("/{accountId}/summary")
+    @PreAuthorize("hasRole('account-read')")
     public Map<String, BigDecimal> summary(@PathVariable String accountId) {
         return repository.summarizeAccountHistory(accountId).stream()
             .collect(Collectors.toMap(

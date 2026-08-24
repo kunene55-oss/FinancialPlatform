@@ -10,6 +10,7 @@ import com.example.financial.processing.service.AccountService;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.math.BigDecimal;
 
 @Slf4j
 @Service
@@ -18,7 +19,11 @@ public class TransactionProcessingService {
     private final TransactionRepository repo;
     private final AccountService accountService;
 
-    public void process(TransactionReceivedEvent event) {
+    public void processTransaction(TransactionReceivedEvent event) {
+        if (event.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            log.error("Transaction {} has invalid amount: {}", event.getTransactionId(), event.getAmount());
+            return;
+        }
         if (repo.findByTransactionId(event.getTransactionId()).isPresent()) {
             log.error("Transaction {} has already been processed.", event.getTransactionId());
             return;
