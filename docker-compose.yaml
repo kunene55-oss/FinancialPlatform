@@ -1,0 +1,175 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_DB: transactions
+    secrets:
+      - postgres_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d transactions"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  configserver:
+    build: ./configserver
+    environment:
+      CONFIG_SERVER_USER: configclient
+    secrets:
+      - configserver_password
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8888'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  vault:
+    image: hashicorp/vault:1.17
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200
+    secrets:
+      - vault_root_token
+    entrypoint: ["sh", "-c"]
+    command:
+      - 'vault server -dev -dev-root-token-id="$$(cat /run/secrets/vault_root_token)" -dev-listen-address=0.0.0.0:8200'
+    ports:
+      - "8200:8200"
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  vault-init:
+    image: hashicorp/vault:1.17
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: http://vault:8200
+    secrets:
+      - vault_root_token
+      - postgres_password
+    volumes:
+      - ./vault-init/setup-approle.sh:/setup-approle.sh:ro
+      - vault-approle:/vault/approle
+    entrypoint: ["sh", "/setup-approle.sh"]
+    restart: "no"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: keycloak
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8080'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  ingestion-service:
+    build: ./ingestion-service
+    depends_on:
+      kafka:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
+    environment:
+      CONFIG_SERVER_USER: configclient
+    secrets:
+      - configserver_password
+    volumes:
+      - vault-approle:/vault/approle:ro
+    ports:
+      - "8081:8080"
+
+  processing-service:
+    build: ./processing-service
+    depends_on:
+      kafka:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
+    environment:
+      CONFIG_SERVER_USER: configclient
+    secrets:
+      - configserver_password
+    volumes:
+      - vault-approle:/vault/approle:ro
+    ports:
+      - "8082:8080"
+
+  aggregation-service:
+    build: ./aggregation-service
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
+    environment:
+      CONFIG_SERVER_USER: configclient
+    secrets:
+      - configserver_password
+    volumes:
+      - vault-approle:/vault/approle:ro
+    ports:
+      - "8083:8080"
+
+volumes:
+  vault-approle:
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  vault_root_token:
+    file: ./secrets/vault_root_token.txt
+  configserver_password:
+    file: ./secrets/configserver_password.txt

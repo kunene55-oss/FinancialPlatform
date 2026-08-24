@@ -19,7 +19,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TransactionEntity {
+
     @Id
+    @Builder.Default
     private final UUID id = UUID.randomUUID();
 
     private UUID transactionId;

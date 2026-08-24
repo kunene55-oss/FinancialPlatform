@@ -1,0 +1,38 @@
+{
+  "realm": "financial-platform",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "ingestion-service",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "ingestion-service-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "clientAuthenticatorType": "client-secret"
+    },
+    {
+      "clientId": "processing-service",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "processing-service-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "clientAuthenticatorType": "client-secret"
+    }
+  ],
+  "roles": {
+    "client": {
+      "processing-service": [
+        {
+          "name": "account-admin",
+          "description": "Allowed to delete/close/suspend/freeze client accounts"
+        }
+      ]
+    }
+  }
+}

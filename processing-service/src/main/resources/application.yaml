@@ -4,7 +4,7 @@ spring:
 
   config:
     import:
-      - optional:configserver:http://configserver:8888
+      - optional:configserver:http://${CONFIG_SERVER_USER}:${CONFIG_SERVER_PASSWORD}@configserver:8888
       - vault://
 
   cloud:
@@ -12,5 +12,12 @@ spring:
       host: vault
       port: 8200
       scheme: http
-      authentication: TOKEN
-      token: root
+      authentication: APPROLE
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
+      database:
+        enabled: true
+        role: processing-service-db
+        username-property: spring.datasource.username
+        password-property: spring.datasource.password

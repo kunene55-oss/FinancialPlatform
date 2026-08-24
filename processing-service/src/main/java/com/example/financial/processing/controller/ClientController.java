@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import com.example.financial.processing.service.AccountService;
@@ -65,6 +66,7 @@ public class ClientController {
                 schema = @Schema(implementation = ErrorResponse.class)
             ))
     })
+    @PreAuthorize("hasRole('account-admin')")
     public ResponseEntity<Void> deleteAccount(@PathVariable String accountId) {
         log.info("Deleting account {}", accountId);
         service.deleteAccount(accountId);
@@ -93,6 +95,7 @@ public class ClientController {
             ))
     })
     @PutMapping("/closeAccount/{accountId}")
+    @PreAuthorize("hasRole('account-admin')")
     public ResponseEntity<?> closeAccount(@PathVariable String accountId) {
         if (accountId == null || accountId.isBlank()) {
             log.warn("Account ID is required to deleted account");
@@ -126,6 +129,7 @@ public class ClientController {
             ))
     })
     @PutMapping("suspendAccount/{accountId}")
+    @PreAuthorize("hasRole('account-admin')")
     public ResponseEntity<String> suspendAccount(@PathVariable String accountId) {
 
         log.info("Deleting account {}", accountId);
@@ -155,6 +159,7 @@ public class ClientController {
             ))
     })
     @PutMapping("/freezeAccount/{accountId}")
+    @PreAuthorize("hasRole('account-admin')")
     public ResponseEntity<Void> freezeAccount(@PathVariable String accountId) {
 
         log.info("Deleting account {}", accountId);

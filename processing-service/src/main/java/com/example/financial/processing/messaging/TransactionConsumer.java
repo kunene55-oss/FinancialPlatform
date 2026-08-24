@@ -11,7 +11,7 @@ import com.example.financial.common.event.TransactionReceivedEvent;
 public class TransactionConsumer {
     private final TransactionProcessingService service;
 
-    @KafkaListener(topics = "transactions.raw", groupId = "costumeGroup")
+    @KafkaListener(topics = "transactions.raw", groupId = "costumGroup")
     public void consume(TransactionReceivedEvent event) {
         service.process(event);
     }
