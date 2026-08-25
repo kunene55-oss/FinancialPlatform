@@ -111,14 +111,15 @@ public class AccountService {
             repo.save(entity);
             return;
         }
-        var balance = client.getBalance();
-        var amount = entity.getAmount();
-        if (entity.getCategory() == null) {
+         if (entity.getCategory() == null) {
             log.error("Transaction {} has no type, cannot be processed", entity.getTransactionId());
             entity.setStatus(TransactionStatus.FAILED);
             repo.save(entity);
             return;
         }
+        var balance = client.getBalance();
+        var amount = entity.getAmount();
+       
         switch (entity.getCategory()) {
             case TransactionType.DEPOSIT: {
                 if (amount.compareTo(BigDecimal.ZERO) <= 0) {

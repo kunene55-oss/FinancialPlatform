@@ -23,6 +23,8 @@ public class FileEntity {
 
         private int transactionCount;
 
+        private int failedTransactionCount;
+
         @Enumerated(EnumType.STRING)
         private FileStatus status;
 }
