@@ -30,7 +30,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final String EXPECTED_CLIENT_ID = "processing-service";
+    private static final String EXPECTED_CLIENT_ID = "aggregation-service";
 
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
     private String issuerUri;
@@ -42,11 +42,6 @@ public class SecurityConfig {
             session.sessionCreationPolicy(SessionCreationPolicy.STATELESS);})
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/actuator/**")
-            .permitAll()
-            .requestMatchers(
-                "/v3/api-docs/**",
-                "/swagger-ui/**",
-                "/swagger-ui.html")
             .permitAll()
             .anyRequest()
             .authenticated() )

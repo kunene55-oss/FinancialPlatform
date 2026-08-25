@@ -3,11 +3,13 @@ version: '3.8'
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
+    restart: unless-stopped
     depends_on:
       - zookeeper
     environment:
@@ -19,6 +21,7 @@ services:
 
   postgres:
     image: postgres:15
+    restart: unless-stopped
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
@@ -37,6 +40,7 @@ services:
 
   configserver:
     build: ./configserver
+    restart: unless-stopped
     environment:
       CONFIG_SERVER_USER: configclient
     secrets:
@@ -49,6 +53,7 @@ services:
 
   vault:
     image: hashicorp/vault:1.17
+    restart: unless-stopped
     cap_add:
       - IPC_LOCK
     environment:
@@ -84,6 +89,7 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
+    restart: unless-stopped
     command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
@@ -101,6 +107,7 @@ services:
 
   ingestion-service:
     build: ./ingestion-service
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_started
@@ -123,6 +130,7 @@ services:
 
   processing-service:
     build: ./processing-service
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_started
@@ -145,6 +153,7 @@ services:
 
   aggregation-service:
     build: ./aggregation-service
+    restart: unless-stopped
     depends_on:
       keycloak:
         condition: service_healthy

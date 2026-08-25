@@ -28,14 +28,14 @@ public class IngestionController {
 
     @PreAuthorize("hasRole('transaction-ingest')")
     @PostMapping("/fileUpload")
-    public void ingestFile(@RequestParam final MultipartFile file){
-        if (file == null) {
-            log.info("file name cannot be null");
-            //Bad request
-            return;
+    public ResponseEntity<Void> ingestFile(@RequestParam final MultipartFile file){
+        if (file == null || file.isEmpty()) {
+            log.info("file cannot be null or empty");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
         log.info("File ingestion started for file: {}", file.getOriginalFilename());
         ingestionService.ingestFile(file);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 
 }

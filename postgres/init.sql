@@ -1,6 +1,8 @@
 CREATE TABLE transactions (
     id UUID PRIMARY KEY,
     created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    version BIGINT,
     transaction_id UUID UNIQUE,
     account_id VARCHAR(255),
     amount NUMERIC,
@@ -13,6 +15,9 @@ CREATE TABLE transactions (
 
 CREATE TABLE files (
     file_hash VARCHAR(255) PRIMARY KEY,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    version BIGINT,
     transaction_count INTEGER,
     failed_transaction_count INTEGER,
     status VARCHAR(255)

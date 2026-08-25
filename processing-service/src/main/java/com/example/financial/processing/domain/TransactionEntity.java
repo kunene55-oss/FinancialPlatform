@@ -12,8 +12,13 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 @Entity
 @Table(name = "transactions")
+@EntityListeners(AuditingEntityListener.class)
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,10 +29,20 @@ public class TransactionEntity {
     @Builder.Default
     private final UUID id = UUID.randomUUID();
 
+    @CreatedDate
+    private Instant createdAt;
+
+    @LastModifiedDate
+    private Instant updatedAt;
+
+    @Version
+    private long version;
+
     private UUID transactionId;
     private String accountId;
     private BigDecimal amount;
     private String merchant;
+
 
     @Enumerated(EnumType.STRING)
     private TransactionType category;

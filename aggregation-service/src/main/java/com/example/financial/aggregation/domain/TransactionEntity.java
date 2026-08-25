@@ -20,6 +20,9 @@ public class TransactionEntity {
     @Id
     private UUID id;
 
+    private Instant createdAt;
+    private Instant updatedAt;
+
     private UUID transactionId;
     private String accountId;
     private BigDecimal amount;

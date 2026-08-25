@@ -52,7 +52,7 @@ public class TransactionProcessingService {
             .accountId(event.getAccountId())
             .amount(event.getAmount())
             .category(event.getType())
-            .status(TransactionStatus.PROCESSING)
+            .status(TransactionStatus.PROCESSING).timestamp(event.getTimestamp())
             .build();
         repo.save(entity);
         accountService.processTransaction(entity);
