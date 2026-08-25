@@ -32,6 +32,7 @@ public class IngestionService {
 
 
     public void publish(final TransactionReceivedEvent event) {
+        event.setPublishedAt(Instant.now());
         try {
             kafkaTemplate.send("transactions.raw", event.getTransactionId().toString(), event).get();
         } catch (Exception e) {
@@ -45,6 +46,12 @@ public class IngestionService {
         FileValidator.validate(file.getOriginalFilename());
         String hash = hash(file);
 
+        var existing = fileRepo.findByFileHash(hash);
+        if (existing.isPresent() && existing.get().getStatus() != FileStatus.FAILED) {
+            throw new IllegalStateException(
+                "File has already been processed or is currently being processed (status: " + existing.get().getStatus() + ")");
+        }
+
         var entity = FileEntity.builder()
             .fileHash(hash)
             .status(FileStatus.PROCESSING)
@@ -53,11 +60,7 @@ public class IngestionService {
         try {
             fileRepo.save(entity);
         } catch (DataIntegrityViolationException e) {
-            var existingStatus = fileRepo.findByFileHash(hash)
-                .map(FileEntity::getStatus)
-                .orElse(null);
-            throw new IllegalStateException(
-                "File has already been processed or is currently being processed (status: " + existingStatus + ")");
+            throw new IllegalStateException("File is currently being processed");
         }
 
         int transactionCount = 0;
@@ -105,19 +108,19 @@ public class IngestionService {
     }
 
     private TransactionReceivedEvent parseLine(String line, int row) {
-        String[] parts = line.split(",");
+        String[] parts = line.split(",", -1);
 
         if (parts.length < 5) {
             var output = "Invalid format in row: " + row;
             throw new IllegalArgumentException(output);
-        } 
+        }
 
         var event = TransactionReceivedEvent.builder()
-            .transactionId(UUID.fromString(parts[0]))
-            .accountId(parts[1])
-            .amount(new BigDecimal(parts[2]))
+            .transactionId(UUID.fromString(parts[0].trim()))
+            .accountId(parts[1].trim())
+            .amount(new BigDecimal(parts[2].trim()))
             .type(TransactionType.valueOf(parts[3].trim().toUpperCase()))
-            .timestamp(Instant.now()).build();
+            .timestamp(Instant.parse(parts[4].trim())).build();
         log.info("Transaction with id: {}, successfully ingested", parts[0]);
         return event;
     }

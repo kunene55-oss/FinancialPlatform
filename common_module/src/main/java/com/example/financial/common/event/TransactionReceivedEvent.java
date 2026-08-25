@@ -27,7 +27,9 @@ public class TransactionReceivedEvent {
     @NotNull(message = "Transaction amount cannot be null")
     private BigDecimal amount;
     
+    @NotNull(message = "Transaction type cannot be null")
     private TransactionType type;
     private TransactionStatus status;
     private Instant timestamp;
+    private Instant publishedAt;
 }

@@ -22,7 +22,7 @@ public class TransactionProcessingService {
 
     @Transactional
     public void processTransaction(TransactionReceivedEvent event) {
-        if (event.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+        if (event.getAmount() == null ||event.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             log.error("Transaction {} has invalid amount: {}", event.getTransactionId(), event.getAmount());
 
             return;

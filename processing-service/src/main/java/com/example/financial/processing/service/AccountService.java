@@ -113,6 +113,12 @@ public class AccountService {
         }
         var balance = client.getBalance();
         var amount = entity.getAmount();
+        if (entity.getCategory() == null) {
+            log.error("Transaction {} has no type, cannot be processed", entity.getTransactionId());
+            entity.setStatus(TransactionStatus.FAILED);
+            repo.save(entity);
+            return;
+        }
         switch (entity.getCategory()) {
             case TransactionType.DEPOSIT: {
                 if (amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -141,7 +147,7 @@ public class AccountService {
                 break;
             }
             case TransactionType.WITHDRAWAL: {
-                if ((balance.subtract(amount)).compareTo(BigDecimal.ZERO) <= 0){
+                if ((balance.subtract(amount)).compareTo(BigDecimal.ZERO) < 0){
                     log.error("Account {} does not have enough funds available for withdrawal", entity.getAccountId());
                     entity.setStatus(TransactionStatus.FAILED);
                     repo.save(entity);
