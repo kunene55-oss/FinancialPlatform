@@ -14,18 +14,17 @@ CREATE TABLE transactions (
 CREATE TABLE files (
     file_hash VARCHAR(255) PRIMARY KEY,
     transaction_count INTEGER,
-    failed_transaction_count INTEGER NOT NULL DEFAULT 0,
+    failed_transaction_count INTEGER,
     status VARCHAR(255)
 );
 
 CREATE TABLE failed_payment_reports (
     id UUID PRIMARY KEY,
-    file_hash VARCHAR(255) NOT NULL,
-    row_number INTEGER NOT NULL,
-    raw_row TEXT NOT NULL,
-    failure_reason VARCHAR(1000) NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    UNIQUE (file_hash, row_number)
+    file_hash VARCHAR(255),
+    row_number INTEGER,
+    raw_row TEXT,
+    failure_reason VARCHAR(255),
+    created_at TIMESTAMP
 );
 
 CREATE TABLE clients (

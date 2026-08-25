@@ -15,11 +15,17 @@ import com.example.financial.ingestion.database.repository.FileRepository;
 import com.example.financial.ingestion.database.repository.FailedPaymentReportRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
+
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.math.BigDecimal;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.security.MessageDigest;
 import java.util.Base64;
 
@@ -124,20 +130,25 @@ public class IngestionService {
     }
 
     private TransactionReceivedEvent parseLine(String line, int row) {
-        String[] parts = line.split(",", -1);
-
-        if (parts.length < 5) {
-            var output = "Invalid format in row: " + row;
-            throw new IllegalArgumentException(output);
+        List<CSVRecord> records;
+        try {
+            records = CSVFormat.DEFAULT.parse(new StringReader(line)).getRecords();
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Invalid format in row: " + row);
         }
 
+        if (records.isEmpty() || records.get(0).size() < 5) {
+            throw new IllegalArgumentException("Invalid format in row: " + row);
+        }
+        var parts = records.get(0);
+
         var event = TransactionReceivedEvent.builder()
-            .transactionId(UUID.fromString(parts[0].trim()))
-            .accountId(parts[1].trim())
-            .amount(new BigDecimal(parts[2].trim()))
-            .type(TransactionType.valueOf(parts[3].trim().toUpperCase()))
-            .timestamp(Instant.parse(parts[4].trim())).build();
-        log.info("Transaction with id: {}, successfully ingested", parts[0]);
+            .transactionId(UUID.fromString(parts.get(0).trim()))
+            .accountId(parts.get(1).trim())
+            .amount(new BigDecimal(parts.get(2).trim()))
+            .type(TransactionType.valueOf(parts.get(3).trim().toUpperCase()))
+            .timestamp(Instant.parse(parts.get(4).trim())).build();
+        log.info("Transaction with id: {}, successfully ingested", parts.get(0));
         return event;
     }
     

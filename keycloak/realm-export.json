@@ -36,6 +36,12 @@
           "name": "account-read",
           "description": "Allowed to request account aggregation summaries"
         }
+      ],
+      "ingestion-service": [
+        {
+          "name": "transaction-ingest",
+          "description": "Allowed to ingest transactions via API or file upload"
+        }
       ]
     }
   }

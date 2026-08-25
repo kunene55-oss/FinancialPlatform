@@ -107,6 +107,13 @@
 			<artifactId>common_module</artifactId>
 			<version>0.0.2-SNAPSHOT</version>
     	</dependency>
+
+		<!-- CSV Parsing -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-csv</artifactId>
+			<version>1.12.0</version>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
