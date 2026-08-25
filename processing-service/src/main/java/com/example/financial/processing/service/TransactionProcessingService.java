@@ -22,12 +22,6 @@ public class TransactionProcessingService {
 
     @Transactional
     public void processTransaction(TransactionReceivedEvent event) {
-        if (event.getAmount() == null ||event.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            log.error("Transaction {} has invalid amount: {}", event.getTransactionId(), event.getAmount());
-
-            return;
-        }
-
         var existing = repo.findByTransactionId(event.getTransactionId());
         if (existing.isPresent()) {
             var entity = existing.get();
@@ -37,6 +31,19 @@ public class TransactionProcessingService {
             }
             log.warn("Transaction {} found stuck in PROCESSING, retrying", event.getTransactionId());
             accountService.processTransaction(entity);
+            return;
+        }
+
+        if (event.getAmount() == null || event.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            log.error("Transaction {} has invalid amount: {}", event.getTransactionId(), event.getAmount());
+            var entity = TransactionEntity.builder()
+                .transactionId(event.getTransactionId())
+                .accountId(event.getAccountId())
+                .amount(event.getAmount())
+                .category(event.getType())
+                .status(TransactionStatus.FAILED)
+                .build();
+            repo.save(entity);
             return;
         }
 

@@ -6,6 +6,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.ExponentialBackOff;
+import com.example.financial.processing.exception.TransactionValidationException;
 
 @Configuration
 public class KafkaErrorHandlingConfig {
@@ -17,6 +18,8 @@ public class KafkaErrorHandlingConfig {
         var backOff = new ExponentialBackOff(1_000L, 2.0);
         backOff.setMaxElapsedTime(10_000L);
 
-        return new DefaultErrorHandler(recoverer, backOff);
+        var errorHandler = new DefaultErrorHandler(recoverer, backOff);
+        errorHandler.addNotRetryableExceptions(TransactionValidationException.class);
+        return errorHandler;
     }
 }
