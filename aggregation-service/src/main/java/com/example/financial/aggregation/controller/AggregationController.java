@@ -17,7 +17,7 @@ public class AggregationController {
     private final AggregationRepository repository;
 
     @GetMapping("/{accountId}/summary")
-    @PreAuthorize("hasRole('account-read')")
+    @PreAuthorize("hasRole('account-read') or hasRole('account-admin')")
     public Map<String, BigDecimal> summary(@PathVariable String accountId) {
         return repository.summarizeAccountHistory(accountId).stream()
             .collect(Collectors.toMap(

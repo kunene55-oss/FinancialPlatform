@@ -14,7 +14,7 @@ public interface AggregationRepository extends JpaRepository<TransactionEntity, 
     @Query("""
         SELECT t.category, SUM(t.amount)
         FROM TransactionEntity t
-        WHERE t.accountId = :accountId AND t.status = 'COMPLETED'
+        WHERE t.accountId = :accountId AND t.status = 'PROCESSED'
         GROUP BY t.category
         """)
     List<Object[]> summarizeAccountHistory(String accountId);

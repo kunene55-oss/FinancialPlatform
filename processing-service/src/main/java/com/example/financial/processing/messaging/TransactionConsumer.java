@@ -22,7 +22,7 @@ public class TransactionConsumer {
     private final TransactionProcessingService service;
     private final Validator validator;
 
-    @KafkaListener(topics = "transactions.raw", groupId = "costumGroup")
+    @KafkaListener(topics = "transactions.raw", groupId = "processing-service")
     public void consume(TransactionReceivedEvent event) {
         if (event.getPublishedAt() != null) {
             var lag = Duration.between(event.getPublishedAt(), Instant.now());

@@ -23,6 +23,17 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "clientAuthenticatorType": "client-secret"
+    },
+    {
+      "clientId": "aggregation-service",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "processing-service-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "clientAuthenticatorType": "client-secret"
     }
   ],
   "roles": {
@@ -41,6 +52,12 @@
         {
           "name": "transaction-ingest",
           "description": "Allowed to ingest transactions via API or file upload"
+        }
+      ],
+      "aggregation-service": [
+        {
+          "name": "transaction-aggregate",
+          "description": "Allowed to aggregate transactions and provide summaries"
         }
       ]
     }

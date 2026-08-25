@@ -11,8 +11,21 @@ spring:
   kafka:
     bootstrap-servers: kafka:9092
 
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: http://keycloak:8080/realms/financial-platform
+
+ingestion:
+  max-rows-per-file: 50000
+  max-processing-duration-seconds: 300
+  executor:
+    core-pool-size: 2
+    max-pool-size: 4
+    queue-capacity: 10
