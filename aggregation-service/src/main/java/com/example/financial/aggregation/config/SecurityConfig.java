@@ -1,10 +1,10 @@
 package com.example.financial.aggregation.config;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -31,9 +31,12 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    // aggregation-service: service-to-service callers (staff/other services).
+    // aggregation-service: aggregation-service's own service account.
+    // processing-service: staff/service-to-service caller, granted account-read/account-admin
+    // under aggregation-service's own client-role namespace in Keycloak.
     // customer-portal: end-user tokens carrying an account_ids claim for self-service access.
-    private static final Set<String> EXPECTED_CLIENT_IDS = Set.of("aggregation-service", "customer-portal");
+    private static final Set<String> EXPECTED_CLIENT_IDS =
+        Set.of("aggregation-service", "processing-service", "customer-portal");
 
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
     private String issuerUri;
@@ -67,19 +70,23 @@ public class SecurityConfig {
         if (resourceAccess == null) {
             return List.of();
         }
-        // azp is already validated against EXPECTED_CLIENT_IDS by the token validator below,
-        // so it's safe to use as the resource_access key here.
-        Object clientAccess = resourceAccess.get(jwt.getClaimAsString("azp"));
-        if (!(clientAccess instanceof Map<?, ?> clientAccessMap)) {
-            return List.of();
+        // Roles relevant to this service can live under different Keycloak client
+        // namespaces depending on the caller: aggregation-service's own namespace holds
+        // staff roles (account-read/account-admin), while customer-portal's namespace
+        // holds account-owner. Merge across all buckets rather than keying off azp alone,
+        // since resource_access is populated by Keycloak from the token subject's actual
+        // granted roles and isn't attacker-controlled.
+        List<GrantedAuthority> authorities = new ArrayList<>();
+        for (Object clientAccess : resourceAccess.values()) {
+            if (!(clientAccess instanceof Map<?, ?> clientAccessMap)) {
+                continue;
+            }
+            if (!(clientAccessMap.get("roles") instanceof Collection<?> roleNames)) {
+                continue;
+            }
+            roleNames.forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role)));
         }
-        Object roles = clientAccessMap.get("roles");
-        if (!(roles instanceof Collection<?> roleNames)) {
-            return List.of();
-        }
-        return roleNames.stream()
-            .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-            .collect(Collectors.toList());
+        return authorities;
     }
 
     @Bean

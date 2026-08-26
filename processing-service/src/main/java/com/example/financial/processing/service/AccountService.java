@@ -118,6 +118,14 @@ public class AccountService {
             repo.save(entity);
             return;
         }
+
+        if (entity.getAmount() == null || entity.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            log.error("Transaction {} has invalid amount: {}", entity.getTransactionId(), entity.getAmount());
+            entity.setStatus(TransactionStatus.FAILED);
+            repo.save(entity);
+            return;
+        }
+
         if (entity.getCategory() == TransactionType.TRANSFER && (entity.getTransferId() == null || entity.getTransferId().isBlank())) {
             log.error("Transaction {} is a transfer but has no transferId, cannot be processed", entity.getTransactionId());
             entity.setStatus(TransactionStatus.FAILED);
@@ -129,12 +137,6 @@ public class AccountService {
        
         switch (entity.getCategory()) {
             case TransactionType.DEPOSIT: {
-                if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-                    log.error("Deposit amounts must be greater than R0.00");
-                    entity.setStatus(TransactionStatus.FAILED);
-                    repo.save(entity);
-                    break;
-                }
                 client.setBalance(balance.add(amount));
                 clientRepo.save(client);
                 entity.setStatus(TransactionStatus.PROCESSED);
@@ -142,13 +144,6 @@ public class AccountService {
                 break;
             }
             case TransactionType.TRANSFER: {
-                entity.setCategory(TransactionType.TRANSFER_OUT);
-                if ((amount.compareTo(BigDecimal.ZERO) <= 0)) {
-                    log.error("Transfer amounts must be greater than R0.00 for transfers");
-                    entity.setStatus(TransactionStatus.FAILED);
-                    repo.save(entity);
-                    break;
-                }
                 if ((balance.subtract(amount)).compareTo(BigDecimal.ZERO) < 0){
                     log.error("Account {} does not have enough funds available for transfer", entity.getAccountId());
                     entity.setStatus(TransactionStatus.FAILED);
@@ -168,7 +163,7 @@ public class AccountService {
                     repo.save(entity);
                     break;
                 }
-
+                entity.setCategory(TransactionType.TRANSFER_OUT);
                 client.setBalance(balance.subtract(amount));
                 receivingClient.setBalance(receivingClient.getBalance().add(amount));
                 clientRepo.save(client);
@@ -190,12 +185,7 @@ public class AccountService {
                 break;
             }
             case TransactionType.WITHDRAWAL: {
-                if ((amount.compareTo(BigDecimal.ZERO) <= 0)) {
-                    log.error("Withdrawal amounts must be greater than R0.00 for withdrawals");
-                    entity.setStatus(TransactionStatus.FAILED);
-                    repo.save(entity);
-                    break;
-                }
+            
                 if ((balance.subtract(amount)).compareTo(BigDecimal.ZERO) < 0){
                     log.error("Account {} does not have enough funds available for withdrawal", entity.getAccountId());
                     entity.setStatus(TransactionStatus.FAILED);
@@ -205,6 +195,12 @@ public class AccountService {
                 client.setBalance(balance.subtract(amount));
                 clientRepo.save(client);
                 entity.setStatus(TransactionStatus.PROCESSED);
+                repo.save(entity);
+                break;
+            }
+            case TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT: {
+                log.error("Transaction {} is a transfer, which should be created automatically by the system", entity.getTransactionId());
+                entity.setStatus(TransactionStatus.FAILED);
                 repo.save(entity);
                 break;
             }

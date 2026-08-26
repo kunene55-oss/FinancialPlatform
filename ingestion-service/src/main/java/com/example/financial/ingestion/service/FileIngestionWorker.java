@@ -119,7 +119,7 @@ public class FileIngestionWorker {
             throw new IllegalArgumentException("Invalid format in row: " + row);
         }
 
-        if (records.isEmpty() || records.get(0).size() < 4) {
+        if (records.isEmpty() || records.get(0).size() < 4 || records.get(0).size() > 6) {
             throw new IllegalArgumentException("Invalid format in row: " + row);
         }
         var parts = records.get(0);

@@ -92,6 +92,14 @@
         {
           "name": "transaction-aggregate",
           "description": "Allowed to aggregate transactions and provide summaries"
+        },
+        {
+          "name": "account-read",
+          "description": "Allowed to request account aggregation summaries for any account"
+        },
+        {
+          "name": "account-admin",
+          "description": "Allowed full staff access to account aggregation data"
         }
       ],
       "customer-portal": [
@@ -118,6 +126,15 @@
       },
       "clientRoles": {
         "customer-portal": ["account-owner"]
+      }
+    },
+    {
+      "username": "service-account-processing-service",
+      "enabled": true,
+      "serviceAccountClientId": "processing-service",
+      "clientRoles": {
+        "processing-service": ["account-admin"],
+        "aggregation-service": ["account-read", "account-admin"]
       }
     }
   ]

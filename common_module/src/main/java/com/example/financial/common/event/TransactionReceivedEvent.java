@@ -32,6 +32,8 @@ public class TransactionReceivedEvent {
     @NotNull(message = "Transaction type cannot be null")
     private TransactionType type;
     private TransactionStatus status;
+
+    @NotNull
     private Instant timestamp;
     private Instant publishedAt;
     private String transferId;
