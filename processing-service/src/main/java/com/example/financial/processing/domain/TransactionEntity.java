@@ -51,6 +51,7 @@ public class TransactionEntity {
     private TransactionStatus status;
 
     private String description;
+    private String transferId;
     private Instant timestamp;
 
 }

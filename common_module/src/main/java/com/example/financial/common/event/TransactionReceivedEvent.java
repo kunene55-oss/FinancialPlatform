@@ -6,6 +6,7 @@ import com.example.financial.common.type.TransactionStatus;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
@@ -22,6 +23,7 @@ public class TransactionReceivedEvent {
     private UUID transactionId;
 
     @NotNull(message = "AccountId cannot be null")
+    @NotBlank(message = "AccountId cannot be blank")
     private String accountId;
 
     @NotNull(message = "Transaction amount cannot be null")
@@ -32,4 +34,5 @@ public class TransactionReceivedEvent {
     private TransactionStatus status;
     private Instant timestamp;
     private Instant publishedAt;
+    private String transferId;
 }
