@@ -45,7 +45,10 @@ public class AggregationService {
 
         BigDecimal income = byType.getOrDefault(TransactionType.DEPOSIT, BigDecimal.ZERO);
         BigDecimal expense = byType.getOrDefault(TransactionType.WITHDRAWAL, BigDecimal.ZERO);
-        return new TotalsResponse(income, expense, income.subtract(expense));
+        BigDecimal transferIn = byType.getOrDefault(TransactionType.TRANSFER_IN, BigDecimal.ZERO);
+        BigDecimal transferOut = byType.getOrDefault(TransactionType.TRANSFER_OUT, BigDecimal.ZERO);
+        BigDecimal net = income.add(transferIn).subtract(expense.add(transferOut));
+        return new TotalsResponse(income, expense, transferIn, transferOut, net);
     }
 
     public Page<MerchantSummary> merchants(String accountId, Instant from, Instant to, Pageable pageable) {

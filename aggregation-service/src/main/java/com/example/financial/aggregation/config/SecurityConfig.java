@@ -3,6 +3,7 @@ package com.example.financial.aggregation.config;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -30,7 +31,9 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final String EXPECTED_CLIENT_ID = "aggregation-service";
+    // aggregation-service: service-to-service callers (staff/other services).
+    // customer-portal: end-user tokens carrying an account_ids claim for self-service access.
+    private static final Set<String> EXPECTED_CLIENT_IDS = Set.of("aggregation-service", "customer-portal");
 
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
     private String issuerUri;
@@ -42,7 +45,7 @@ public class SecurityConfig {
             session.sessionCreationPolicy(SessionCreationPolicy.STATELESS);})
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/actuator/**")
-            .permitAll()
+            .authenticated()
             .anyRequest()
             .authenticated() )
         .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt
@@ -64,7 +67,9 @@ public class SecurityConfig {
         if (resourceAccess == null) {
             return List.of();
         }
-        Object clientAccess = resourceAccess.get(EXPECTED_CLIENT_ID);
+        // azp is already validated against EXPECTED_CLIENT_IDS by the token validator below,
+        // so it's safe to use as the resource_access key here.
+        Object clientAccess = resourceAccess.get(jwt.getClaimAsString("azp"));
         if (!(clientAccess instanceof Map<?, ?> clientAccessMap)) {
             return List.of();
         }
@@ -83,11 +88,11 @@ public class SecurityConfig {
 
         OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
         OAuth2TokenValidator<Jwt> withExpectedClient = token -> {
-            if (EXPECTED_CLIENT_ID.equals(token.getClaimAsString("azp"))) {
+            if (EXPECTED_CLIENT_IDS.contains(token.getClaimAsString("azp"))) {
                 return OAuth2TokenValidatorResult.success();
             }
             return OAuth2TokenValidatorResult.failure(
-                new OAuth2Error("invalid_token", "Token was not issued for " + EXPECTED_CLIENT_ID, null));
+                new OAuth2Error("invalid_token", "Token was not issued for an expected client", null));
         };
 
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, withExpectedClient));

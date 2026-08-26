@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -141,8 +142,9 @@ public class AccountService {
                 break;
             }
             case TransactionType.TRANSFER: {
+                entity.setCategory(TransactionType.TRANSFER_OUT);
                 if ((amount.compareTo(BigDecimal.ZERO) <= 0)) {
-                    log.error("Transfer amounts must be greater than R0.00");
+                    log.error("Transfer amounts must be greater than R0.00 for transfers");
                     entity.setStatus(TransactionStatus.FAILED);
                     repo.save(entity);
                     break;
@@ -153,14 +155,47 @@ public class AccountService {
                     repo.save(entity);
                     break;
                 }
+                if (entity.getTransferId().equals(entity.getAccountId())) {
+                    log.error("Transaction {} is a transfer to its own account, cannot be processed", entity.getTransactionId());
+                    entity.setStatus(TransactionStatus.FAILED);
+                    repo.save(entity);
+                    break;
+                }
+                var receivingClient = clientRepo.findByAccountId(entity.getTransferId()).orElse(null);
+                if (receivingClient == null || receivingClient.getAccountStatus() != AccountStatus.OPEN) {
+                    log.error("Receiving account {} does not exist or is not open, transfer cannot be processed", entity.getTransferId());
+                    entity.setStatus(TransactionStatus.FAILED);
+                    repo.save(entity);
+                    break;
+                }
+
                 client.setBalance(balance.subtract(amount));
+                receivingClient.setBalance(receivingClient.getBalance().add(amount));
                 clientRepo.save(client);
+                clientRepo.save(receivingClient);
 
                 entity.setStatus(TransactionStatus.PROCESSED);
                 repo.save(entity);
+
+                var creditEntity = TransactionEntity.builder()
+                    .transactionId(UUID.randomUUID())
+                    .accountId(receivingClient.getAccountId())
+                    .amount(amount)
+                    .category(TransactionType.TRANSFER_IN)
+                    .status(TransactionStatus.PROCESSED)
+                    .transferId(entity.getAccountId())
+                    .timestamp(entity.getTimestamp())
+                    .build();
+                repo.save(creditEntity);
                 break;
             }
             case TransactionType.WITHDRAWAL: {
+                if ((amount.compareTo(BigDecimal.ZERO) <= 0)) {
+                    log.error("Withdrawal amounts must be greater than R0.00 for withdrawals");
+                    entity.setStatus(TransactionStatus.FAILED);
+                    repo.save(entity);
+                    break;
+                }
                 if ((balance.subtract(amount)).compareTo(BigDecimal.ZERO) < 0){
                     log.error("Account {} does not have enough funds available for withdrawal", entity.getAccountId());
                     entity.setStatus(TransactionStatus.FAILED);

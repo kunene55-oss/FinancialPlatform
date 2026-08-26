@@ -48,6 +48,7 @@ public interface AggregationRepository extends JpaRepository<TransactionEntity, 
         AND (:from IS NULL OR t.timestamp >= :from)
         AND (:to IS NULL OR t.timestamp <= :to)
         GROUP BY t.merchant
+        ORDER BY SUM(t.amount) DESC
         """,
         countQuery = """
         SELECT COUNT(DISTINCT t.merchant)

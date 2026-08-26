@@ -41,8 +41,6 @@ public class SecurityConfig {
         .sessionManagement(session -> {
             session.sessionCreationPolicy(SessionCreationPolicy.STATELESS);})
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/actuator/**")
-            .authenticated()
             .anyRequest()
             .authenticated() )
         .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt

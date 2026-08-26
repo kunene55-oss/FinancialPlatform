@@ -34,6 +34,40 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "clientAuthenticatorType": "client-secret"
+    },
+    {
+      "clientId": "customer-portal",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "customer-portal-secret",
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": ["http://localhost:3000/*"],
+      "defaultClientScopes": ["account-access", "roles"]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "account-access",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "account-ids",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "account_ids",
+            "claim.name": "account_ids",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "roles": {
@@ -59,7 +93,32 @@
           "name": "transaction-aggregate",
           "description": "Allowed to aggregate transactions and provide summaries"
         }
+      ],
+      "customer-portal": [
+        {
+          "name": "account-owner",
+          "description": "Allowed to view aggregation data for accounts listed in the caller's account_ids claim"
+        }
       ]
     }
-  }
+  },
+  "users": [
+    {
+      "username": "demo-customer",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo-customer",
+          "temporary": false
+        }
+      ],
+      "attributes": {
+        "account_ids": ["ACC-1001", "ACC-1002"]
+      },
+      "clientRoles": {
+        "customer-portal": ["account-owner"]
+      }
+    }
+  ]
 }

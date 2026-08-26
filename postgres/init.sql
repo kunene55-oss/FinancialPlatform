@@ -4,12 +4,13 @@ CREATE TABLE transactions (
     updated_at TIMESTAMP,
     version BIGINT,
     transaction_id UUID UNIQUE,
-    account_id VARCHAR(255),
-    amount NUMERIC,
+    account_id VARCHAR(255) NOT NULL,
+    amount NUMERIC NOT NULL,
     merchant VARCHAR(255),
     category VARCHAR(255),
     status VARCHAR(255),
     description VARCHAR(255),
+    transfer_id VARCHAR(255),
     timestamp TIMESTAMP
 );
 
@@ -36,12 +37,12 @@ CREATE TABLE clients (
     id UUID PRIMARY KEY,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
-    account_id VARCHAR(255) UNIQUE,
+    account_id VARCHAR(255) UNIQUE NOT NULL,
     first_name VARCHAR(20),
     last_name VARCHAR(20),
-    id_number BIGINT UNIQUE,
-    account_status VARCHAR(255),
-    balance NUMERIC,
+    id_number BIGINT UNIQUE NOT NULL,
+    account_status VARCHAR(255) NOT NULL,
+    balance NUMERIC NOT NULL,
     version BIGINT
 );
 

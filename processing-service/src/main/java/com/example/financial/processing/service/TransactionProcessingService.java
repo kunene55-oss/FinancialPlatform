@@ -42,6 +42,7 @@ public class TransactionProcessingService {
                 .amount(event.getAmount())
                 .category(event.getType())
                 .status(TransactionStatus.FAILED)
+                .transferId(event.getTransferId())
                 .build();
             repo.save(entity);
             return;
@@ -52,7 +53,9 @@ public class TransactionProcessingService {
             .accountId(event.getAccountId())
             .amount(event.getAmount())
             .category(event.getType())
-            .status(TransactionStatus.PROCESSING).timestamp(event.getTimestamp())
+            .status(TransactionStatus.PROCESSING)
+            .timestamp(event.getTimestamp())
+            .transferId(event.getTransferId())
             .build();
         repo.save(entity);
         accountService.processTransaction(entity);

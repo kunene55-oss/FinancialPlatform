@@ -119,17 +119,28 @@ public class FileIngestionWorker {
             throw new IllegalArgumentException("Invalid format in row: " + row);
         }
 
-        if (records.isEmpty() || records.get(0).size() < 5) {
+        if (records.isEmpty() || records.get(0).size() < 4) {
             throw new IllegalArgumentException("Invalid format in row: " + row);
         }
         var parts = records.get(0);
+        var type = TransactionType.valueOf(parts.get(3).trim().toUpperCase());
 
-        var event = TransactionReceivedEvent.builder()
+        int expectedColumns = type == TransactionType.TRANSFER ? 6 : 5;
+        if (parts.size() != expectedColumns) {
+            throw new IllegalArgumentException("Invalid format in row: " + row);
+        }
+
+        var eventBuilder = TransactionReceivedEvent.builder()
             .transactionId(UUID.fromString(parts.get(0).trim()))
             .accountId(parts.get(1).trim())
             .amount(new BigDecimal(parts.get(2).trim()))
-            .type(TransactionType.valueOf(parts.get(3).trim().toUpperCase()))
-            .timestamp(Instant.parse(parts.get(4).trim())).build();
+            .type(type)
+            .timestamp(Instant.parse(parts.get(4).trim()));
+        if (type == TransactionType.TRANSFER) {
+            eventBuilder.transferId(parts.get(5).trim());
+        }
+
+        var event = eventBuilder.build();
         log.info("Transaction with id: {}, successfully ingested", parts.get(0));
         return event;
     }

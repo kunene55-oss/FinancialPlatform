@@ -1,6 +1,7 @@
 package com.example.financial.aggregation.controller;
 
 import com.example.financial.aggregation.dto.*;
+import com.example.financial.aggregation.security.AccountAccessGuard;
 import com.example.financial.aggregation.service.AggregationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,7 +14,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -26,9 +29,17 @@ import java.util.Map;
 @RequestMapping("/aggregations")
 public class AggregationController {
 
-    private static final String READ_ACCESS = "hasRole('account-read') or hasRole('account-admin')";
+    // Staff roles (service tokens) may access any account.
+    // account-owner (customer-portal user tokens) is additionally checked against
+    // the caller's own account_ids claim via AccountAccessGuard.
+    private static final String STAFF_ACCESS = "hasRole('account-read') or hasRole('account-admin')";
+    private static final String READ_ACCESS =
+        STAFF_ACCESS + " or (hasRole('account-owner') and @accountAccess.owns(authentication, #accountId))";
+    private static final String READ_ACCESS_ANY_OWNER =
+        STAFF_ACCESS + " or hasRole('account-owner')";
 
     private final AggregationService service;
+    private final AccountAccessGuard accountAccess;
 
     @Operation(summary = "Sum of processed transactions by category for an account, optionally within a date range")
     @ApiResponses(value = {
@@ -37,7 +48,7 @@ public class AggregationController {
         @ApiResponse(responseCode = "400", description = "'from' is after 'to'",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Caller lacks account-read/account-admin role", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Caller lacks access to this account", content = @Content)
     })
     @GetMapping("/{accountId}/summary")
     @PreAuthorize(READ_ACCESS)
@@ -55,7 +66,7 @@ public class AggregationController {
         @ApiResponse(responseCode = "400", description = "Invalid interval or 'from' after 'to'",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Caller lacks account-read/account-admin role", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Caller lacks access to this account", content = @Content)
     })
     @GetMapping("/{accountId}/trend")
     @PreAuthorize(READ_ACCESS)
@@ -74,7 +85,7 @@ public class AggregationController {
         @ApiResponse(responseCode = "400", description = "'from' is after 'to'",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Caller lacks account-read/account-admin role", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Caller lacks access to this account", content = @Content)
     })
     @GetMapping("/{accountId}/totals")
     @PreAuthorize(READ_ACCESS)
@@ -92,7 +103,7 @@ public class AggregationController {
         @ApiResponse(responseCode = "400", description = "'from' is after 'to'",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Caller lacks account-read/account-admin role", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Caller lacks access to this account", content = @Content)
     })
     @GetMapping("/{accountId}/merchants")
     @PreAuthorize(READ_ACCESS)
@@ -111,7 +122,7 @@ public class AggregationController {
         @ApiResponse(responseCode = "400", description = "'from' is after 'to'",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Caller lacks account-read/account-admin role", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Caller lacks access to this account", content = @Content)
     })
     @GetMapping("/{accountId}/status-summary")
     @PreAuthorize(READ_ACCESS)
@@ -129,7 +140,7 @@ public class AggregationController {
         @ApiResponse(responseCode = "400", description = "'from' is after 'to'",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Caller lacks account-read/account-admin role", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Caller lacks access to this account", content = @Content)
     })
     @GetMapping("/{accountId}/transactions")
     @PreAuthorize(READ_ACCESS)
@@ -148,14 +159,19 @@ public class AggregationController {
         @ApiResponse(responseCode = "400", description = "accountIds missing/empty or 'from' after 'to'",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Caller lacks account-read/account-admin role", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Caller (account-owner) owns none of the requested accounts", content = @Content)
     })
     @GetMapping("/summary")
-    @PreAuthorize(READ_ACCESS)
+    @PreAuthorize(READ_ACCESS_ANY_OWNER)
     public List<AccountTotal> accountTotals(
         @RequestParam List<String> accountIds,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
-        return service.accountTotals(accountIds, from, to);
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+        Authentication authentication) {
+        List<String> allowed = accountAccess.restrictToOwned(authentication, accountIds);
+        if (allowed.isEmpty() && !accountIds.isEmpty()) {
+            throw new AccessDeniedException("Caller owns none of the requested accounts");
+        }
+        return service.accountTotals(allowed, from, to);
     }
 }
