@@ -5,6 +5,22 @@ spring:
   config:
     import:
       - optional:configserver:http://${CONFIG_SERVER_USER}:${CONFIG_SERVER_PASSWORD}@configserver:8888
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "local"
+  cloud:
+    vault:
+      enabled: false
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "!local"
+    import:
       - vault://
 
   cloud:
