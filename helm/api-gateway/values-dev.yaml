@@ -1,0 +1,25 @@
+replicaCount: 1
+
+image:
+  tag: "dev"
+  pullPolicy: Always
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 384Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+ingress:
+  enabled: true
+  className: nginx
+  host: api.dev.financial-platform.internal
+
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: dev

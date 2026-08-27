@@ -10,6 +10,7 @@ import com.example.financial.ingestion.database.repository.FileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -18,13 +19,11 @@ import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -51,10 +50,10 @@ public class FileIngestionWorker {
         int failedTransactionCount = 0;
         int rowNumber = 0;
         Instant start = Instant.now();
-        try (BufferedReader reader = Files.newBufferedReader(tempFile)) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                rowNumber++;
+        try (BufferedReader reader = Files.newBufferedReader(tempFile);
+             CSVParser parser = CSVFormat.DEFAULT.parse(reader)) {
+            for (CSVRecord record : parser) {
+                rowNumber = (int) record.getRecordNumber();
 
                 if (rowNumber > maxRowsPerFile) {
                     throw new IllegalStateException(
@@ -67,13 +66,13 @@ public class FileIngestionWorker {
 
                 TransactionReceivedEvent event;
                 try {
-                    event = parseLine(line, rowNumber);
+                    event = parseRecord(record, rowNumber);
                 } catch (Exception e) {
                     failedPaymentReportRepo.save(FailedPaymentReport.builder()
                         .id(UUID.randomUUID())
                         .fileHash(fileHash)
                         .rowNumber(rowNumber)
-                        .rawRow(line)
+                        .rawRow(record.toString())
                         .failureReason(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())
                         .createdAt(Instant.now())
                         .build());
@@ -111,18 +110,10 @@ public class FileIngestionWorker {
         }
     }
 
-    private TransactionReceivedEvent parseLine(String line, int row) {
-        List<CSVRecord> records;
-        try {
-            records = CSVFormat.DEFAULT.parse(new StringReader(line)).getRecords();
-        } catch (IOException e) {
+    private TransactionReceivedEvent parseRecord(CSVRecord parts, int row) {
+        if (parts.size() < 4 || parts.size() > 6) {
             throw new IllegalArgumentException("Invalid format in row: " + row);
         }
-
-        if (records.isEmpty() || records.get(0).size() < 4 || records.get(0).size() > 6) {
-            throw new IllegalArgumentException("Invalid format in row: " + row);
-        }
-        var parts = records.get(0);
         var type = TransactionType.valueOf(parts.get(3).trim().toUpperCase());
 
         int expectedColumns = type == TransactionType.TRANSFER ? 6 : 5;

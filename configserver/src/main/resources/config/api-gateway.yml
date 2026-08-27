@@ -1,0 +1,24 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: ingestion-service
+          uri: http://ingestion-service:8080
+          predicates:
+            - Path=/ingest/**
+
+        - id: processing-service
+          uri: http://processing-service:8080
+          predicates:
+            - Path=/accounts/**
+
+        - id: aggregation-service
+          uri: http://aggregation-service:8080
+          predicates:
+            - Path=/aggregations/**
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak:8080/realms/financial-platform

@@ -98,7 +98,7 @@ public class AccountService {
    
     @Transactional
     public void processTransaction(final TransactionEntity entity) {
-        var client = clientRepo.findByAccountId(entity.getAccountId()).orElse(null);
+        var client = clientRepo.findByAccountIdForUpdate(entity.getAccountId()).orElse(null);
         if (client == null) {
             log.error("Client does not exist, transaction cannot be processed");
             entity.setStatus(TransactionStatus.FAILED);
@@ -156,7 +156,7 @@ public class AccountService {
                     repo.save(entity);
                     break;
                 }
-                var receivingClient = clientRepo.findByAccountId(entity.getTransferId()).orElse(null);
+                var receivingClient = clientRepo.findByAccountIdForUpdate(entity.getTransferId()).orElse(null);
                 if (receivingClient == null || receivingClient.getAccountStatus() != AccountStatus.OPEN) {
                     log.error("Receiving account {} does not exist or is not open, transfer cannot be processed", entity.getTransferId());
                     entity.setStatus(TransactionStatus.FAILED);

@@ -1,3 +1,8 @@
 .env
 secrets/postgres_password.txt
 secrets/vault_root_token.txt
+secrets/configserver_password.txt
+
+# helm dependency build output (regenerate with `helm dependency build <chart>`)
+helm/*/charts/
+helm/*/Chart.lock

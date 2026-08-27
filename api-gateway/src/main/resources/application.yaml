@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: api-gateway
+
+  config:
+    import:
+      - optional:configserver:http://${CONFIG_SERVER_USER}:${CONFIG_SERVER_PASSWORD}@configserver:8888

@@ -1,0 +1,74 @@
+# Default values for ingestion-service.
+# values-dev.yaml / values-qa.yaml / values-prod.yaml override only what
+# differs per environment (image tag, replicas, resources, secret names).
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: registry.example.com/financial-platform/ingestion-service
+  tag: "0.0.3-SNAPSHOT"
+  pullPolicy: IfNotPresent
+
+containerPort: 8080
+
+configServerUser: configclient
+
+# Extra literal env vars, e.g. [{name: FOO, value: bar}]
+env: []
+extraEnvFrom: []
+
+secrets:
+  # k8s Secret holding the config-server basic-auth password, mounted at
+  # /run/secrets/configserver_password (read by entrypoint.sh).
+  configServerPassword:
+    existingSecret: "configserver-credentials"
+    secretKey: password
+  # k8s Secret holding this service's Vault AppRole role-id/secret-id,
+  # mounted at /vault/approle/ (read by entrypoint.sh for dynamic DB creds).
+  vaultApprole:
+    enabled: true
+    existingSecret: "ingestion-service-vault-approle"
+    roleIdKey: role-id
+    secretIdKey: secret-id
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 768Mi
+
+probes:
+  enabled: true
+  type: http
+  path: /actuator/health
+  initialDelaySeconds: 30
+  readinessInitialDelaySeconds: 15
+  periodSeconds: 10
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 75
+
+service:
+  type: ClusterIP
+  port: 8080
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+ingress:
+  enabled: false
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

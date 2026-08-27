@@ -1,0 +1,7 @@
+gateway:
+  cors:
+    allowed-origins: "http://localhost:3000"
+
+logging:
+  level:
+    com.example.financial: DEBUG

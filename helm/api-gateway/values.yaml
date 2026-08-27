@@ -1,0 +1,74 @@
+# Default values for api-gateway.
+# values-dev.yaml / values-qa.yaml / values-prod.yaml override only what
+# differs per environment (image tag, replicas, resources, ingress host).
+#
+# This is the only chart in the platform meant to be reachable from outside
+# the cluster - every other service stays ClusterIP-only and is reached
+# through this gateway's routes (see configserver/src/main/resources/config/api-gateway.yml).
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: registry.example.com/financial-platform/api-gateway
+  tag: "0.0.1-SNAPSHOT"
+  pullPolicy: IfNotPresent
+
+containerPort: 8080
+
+configServerUser: configclient
+
+env: []
+extraEnvFrom: []
+
+secrets:
+  configServerPassword:
+    existingSecret: "configserver-credentials"
+    secretKey: password
+  vaultApprole:
+    enabled: false
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 768Mi
+
+probes:
+  enabled: true
+  type: http
+  path: /actuator/health
+  initialDelaySeconds: 20
+  readinessInitialDelaySeconds: 10
+  periodSeconds: 10
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 75
+
+service:
+  type: ClusterIP
+  port: 8080
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  host: api.dev.financial-platform.internal
+  tls: []
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

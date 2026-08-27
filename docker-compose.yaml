@@ -126,6 +126,7 @@ services:
         condition: service_completed_successfully
     environment:
       CONFIG_SERVER_USER: configclient
+      SPRING_PROFILES_ACTIVE: dev
     secrets:
       - configserver_password
     volumes:
@@ -149,6 +150,7 @@ services:
         condition: service_completed_successfully
     environment:
       CONFIG_SERVER_USER: configclient
+      SPRING_PROFILES_ACTIVE: dev
     secrets:
       - configserver_password
     volumes:
@@ -170,12 +172,35 @@ services:
         condition: service_completed_successfully
     environment:
       CONFIG_SERVER_USER: configclient
+      SPRING_PROFILES_ACTIVE: dev
     secrets:
       - configserver_password
     volumes:
       - vault-approle:/vault/approle:ro
     ports:
       - "8083:8080"
+
+  api-gateway:
+    build: ./api-gateway
+    restart: unless-stopped
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+      ingestion-service:
+        condition: service_started
+      processing-service:
+        condition: service_started
+      aggregation-service:
+        condition: service_started
+    environment:
+      CONFIG_SERVER_USER: configclient
+      SPRING_PROFILES_ACTIVE: dev
+    secrets:
+      - configserver_password
+    ports:
+      - "8080:8080"
 
 volumes:
   vault-approle:

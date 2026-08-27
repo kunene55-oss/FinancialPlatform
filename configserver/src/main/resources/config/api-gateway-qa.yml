@@ -1,0 +1,7 @@
+gateway:
+  cors:
+    allowed-origins: "https://qa.financial-platform.example.com"
+
+logging:
+  level:
+    com.example.financial: INFO

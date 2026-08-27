@@ -1,0 +1,76 @@
+# Default values for configserver.
+# values-dev.yaml / values-qa.yaml / values-prod.yaml override only what
+# differs per environment (image tag, replicas, resources, secret names).
+#
+# Config is classpath-baked into the jar (native profile) - all three app
+# services and the gateway hard-code "http://configserver:8888" as their
+# import source, so this chart's Service name must stay exactly
+# "configserver" (see helm/common's fullname convention).
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: registry.example.com/financial-platform/configserver
+  tag: "0.0.1-SNAPSHOT"
+  pullPolicy: IfNotPresent
+
+containerPort: 8888
+
+configServerUser: configclient
+
+env: []
+extraEnvFrom: []
+
+secrets:
+  # configserver is the source of the basic-auth credential (not a config
+  # consumer) but reads it the exact same way every other service does.
+  configServerPassword:
+    existingSecret: "configserver-credentials"
+    secretKey: password
+  vaultApprole:
+    enabled: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 384Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+probes:
+  enabled: true
+  # No credentials to present for an HTTP health check (default Spring
+  # Security auto-config puts basic auth on every path, /actuator/health
+  # included) - match the existing docker-compose workaround and just
+  # check the port is open.
+  type: tcp
+  initialDelaySeconds: 20
+  readinessInitialDelaySeconds: 10
+  periodSeconds: 10
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 75
+
+service:
+  type: ClusterIP
+  port: 8888
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+ingress:
+  enabled: false
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,16 @@
+replicaCount: 2
+
+image:
+  tag: "0.0.1"
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 768Mi
+
+autoscaling:
+  enabled: false
