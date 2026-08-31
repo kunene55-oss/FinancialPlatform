@@ -14,7 +14,6 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_BASE: ghcr.io/${{ github.repository }}
 
 jobs:
   # ---------------------------------------------------------------------
@@ -26,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       env: ${{ steps.map.outputs.env }}
+      image_base: ${{ steps.image.outputs.image_base }}
     steps:
       - id: map
         run: |
@@ -38,6 +38,12 @@ jobs:
               exit 1
               ;;
           esac
+      - id: image
+        # OCI repository names must be lowercase; github.repository preserves
+        # the repo's actual casing (e.g. kunene55-oss/FinancialPlatform), so
+        # it can't be used directly in an image tag. GitHub Actions
+        # expressions have no built-in lowercase function, hence the shell step.
+        run: echo "image_base=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
   build-common:
     runs-on: ubuntu-latest
@@ -97,8 +103,8 @@ jobs:
           context: ${{ matrix.service }}
           push: true
           tags: |
-            ${{ env.IMAGE_BASE }}/${{ matrix.service }}:${{ github.sha }}
-            ${{ env.IMAGE_BASE }}/${{ matrix.service }}:${{ needs.resolve-env.outputs.env }}
+            ${{ needs.resolve-env.outputs.image_base }}/${{ matrix.service }}:${{ github.sha }}
+            ${{ needs.resolve-env.outputs.image_base }}/${{ matrix.service }}:${{ needs.resolve-env.outputs.env }}
 
   # ---------------------------------------------------------------------
   # configserver goes first and must be healthy before the app services -
@@ -143,7 +149,7 @@ jobs:
           helm upgrade --install configserver ./helm/configserver \
             -f ./helm/configserver/values-${TARGET_ENV}.yaml \
             --namespace "$TARGET_ENV" \
-            --set image.repository=${{ env.IMAGE_BASE }}/configserver \
+            --set image.repository=${{ needs.resolve-env.outputs.image_base }}/configserver \
             --set image.tag=${{ github.sha }} \
             --wait --timeout 5m
 
@@ -195,6 +201,6 @@ jobs:
           helm upgrade --install ${{ matrix.service }} ./helm/${{ matrix.service }} \
             -f ./helm/${{ matrix.service }}/values-${TARGET_ENV}.yaml \
             --namespace "$TARGET_ENV" \
-            --set image.repository=${{ env.IMAGE_BASE }}/${{ matrix.service }} \
+            --set image.repository=${{ needs.resolve-env.outputs.image_base }}/${{ matrix.service }} \
             --set image.tag=${{ github.sha }} \
             --wait --timeout 5m
