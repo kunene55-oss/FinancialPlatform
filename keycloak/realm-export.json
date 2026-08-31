@@ -158,6 +158,14 @@
         "processing-service": ["account-admin"],
         "aggregation-service": ["account-read", "account-admin"]
       }
+    },
+    {
+      "username": "service-account-ingestion-service",
+      "enabled": true,
+      "serviceAccountClientId": "ingestion-service",
+      "clientRoles": {
+        "ingestion-service": ["transaction-ingest"]
+      }
     }
   ]
 }
