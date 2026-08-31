@@ -52,6 +52,7 @@ public class FileIngestionWorker {
         Instant start = Instant.now();
         try (BufferedReader reader = Files.newBufferedReader(tempFile);
              CSVParser parser = CSVFormat.DEFAULT.parse(reader)) {
+            log.info("File ingestion started for hash {} with max rows {} and max duration {} seconds", fileHash, maxRowsPerFile, maxProcessingDurationSeconds);
             for (CSVRecord record : parser) {
                 rowNumber = (int) record.getRecordNumber();
 
@@ -104,6 +105,7 @@ public class FileIngestionWorker {
         event.setPublishedAt(Instant.now());
         try {
             kafkaTemplate.send("transactions.raw", event.getAccountId(), event).get();
+            log.info("Published transaction event with transactionId {}", event.getTransactionId());
         } catch (Exception e) {
             log.error("Failed to publish event with transactionId {}", event.getTransactionId(), e);
             throw new RuntimeException("Failed to publish transaction event", e);
@@ -139,6 +141,7 @@ public class FileIngestionWorker {
     private void deleteQuietly(Path path) {
         try {
             Files.deleteIfExists(path);
+            log.info("Temp ingestion file {} deleted successfully", path);
         } catch (IOException e) {
             log.warn("Failed to delete temp ingestion file {}", path, e);
         }

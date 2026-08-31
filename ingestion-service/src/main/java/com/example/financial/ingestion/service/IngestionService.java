@@ -35,6 +35,7 @@ public class IngestionService {
         event.setPublishedAt(Instant.now());
         try {
             kafkaTemplate.send("transactions.raw", event.getAccountId(), event).get();
+            log.info("Published transaction event with transactionId {}", event.getTransactionId());
         } catch (Exception e) {
             log.error("Failed to publish event with transactionId {}", event.getTransactionId(), e);
             throw new RuntimeException("Failed to publish transaction event", e);
@@ -44,6 +45,7 @@ public class IngestionService {
 
     public String initiateIngestion(MultipartFile file) {
         FileValidator.validate(file.getOriginalFilename());
+        log.info("File ingestion started for {}", file.getOriginalFilename());
         String hash = hash(file);
 
         var existing = fileRepo.findByFileHash(hash);
@@ -59,6 +61,7 @@ public class IngestionService {
             .build();
         try {
             fileRepo.save(entity);
+            log.info("File ingestion record created for hash {}", hash);
         } catch (DataIntegrityViolationException e) {
             throw new IllegalStateException("File is currently being processed");
         }
@@ -67,6 +70,7 @@ public class IngestionService {
         try {
             tempFile = Files.createTempFile("ingest-", ".csv");
             file.transferTo(tempFile);
+            log.info("File {} staged for ingestion at {}", file.getOriginalFilename(), tempFile);
         } catch (IOException e) {
             entity.setStatus(FileStatus.FAILED);
             fileRepo.save(entity);

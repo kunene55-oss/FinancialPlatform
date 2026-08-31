@@ -2,6 +2,47 @@
 
 Microservice financial platform: ingests transactions, processes them against account balances, and serves aggregated reporting. Backed by Kafka, Postgres, Keycloak (auth), HashiCorp Vault (dynamic DB creds), and Spring Cloud Config Server (central config). Fronted by a Spring Cloud Gateway edge service; deployable via Docker Compose (single environment) or Helm (dev/qa/prod).
 
+## Running Locally (Docker Compose)
+
+Prereqs: Docker with Compose, JDK 21.
+
+**1. First time only — create the Docker secrets** (gitignored; `.example` files show the expected format):
+```bash
+cp secrets/postgres_password.txt.example secrets/postgres_password.txt
+cp secrets/vault_root_token.txt.example secrets/vault_root_token.txt
+cp secrets/configserver_password.txt.example secrets/configserver_password.txt
+# edit each to a real value
+```
+
+**2. Build the jars.** The Dockerfiles `COPY` a pre-built jar rather than doing a multi-stage Maven build, so package everything before `docker compose build` — `common_module` first, the other five depend on it:
+```bash
+(cd common_module && ./mvnw -q -DskipTests install)
+for svc in ingestion-service processing-service aggregation-service configserver api-gateway; do
+  (cd "$svc" && ./mvnw -q -DskipTests package)
+done
+```
+
+**3. Start everything:**
+```bash
+docker compose up -d --build
+```
+`vault-init` occasionally races Postgres's first-boot restart cycle (the official Postgres image runs initdb, then restarts once — `pg_isready` can report healthy in the gap) and exits with an error on a *completely fresh* volume. If that happens, Postgres is already stable by then — just rerun `docker compose up -d` and it goes through.
+
+**4. Verify it's up:**
+```bash
+docker compose ps                              # everything should be "healthy" or "Up"
+curl http://localhost:8080/actuator/health      # api-gateway
+curl http://localhost:8081/actuator/health      # ingestion-service
+curl http://localhost:8082/actuator/health      # processing-service
+curl http://localhost:8083/actuator/health      # aggregation-service
+```
+
+**5. Take it down:**
+```bash
+docker compose down
+```
+Postgres data lives in the named volume `postgres-data` — survives a plain `down`, so `account_number_seq` and everything else keeps counting forward across restarts instead of resetting. Use `docker compose down -v` if you actually want a clean slate (`postgres/init.sql` only reruns then, since it's an "on first init" script). Keycloak has no persistent volume — it fully re-imports [keycloak/realm-export.json](keycloak/realm-export.json) on every fresh start, so realm state (including anything you change by hand through its UI) does *not* survive a restart.
+
 ## Services & Ports
 
 | Service | Host Port | Container Port | Purpose |
@@ -36,6 +77,8 @@ client → api-gateway (8080) ─┬→ /ingest/**       → ingestion-service �
 - **processing-service**: consumes `transactions.raw`. Applies deposit/withdrawal/transfer against `clients.balance` with optimistic locking (`@Version` on `ClientEntity`/`TransactionEntity`). Transfers create paired `TRANSFER_OUT`/`TRANSFER_IN` rows; self-transfer rejected. Bad/invalid messages go to dead-letter topic (`transactions.raw.DLT`) via `DeadLetterPublishingRecoverer` + exponential backoff (1s → max 10s elapsed); validation errors skip retry and go straight to DLT. REST: `/accounts/createAccount`, `/deleteAccount/{id}`, `/closeAccount/{id}`, `/suspendAccount/{id}`, `/freezeAccount/{id}` — all `account-admin` role.
 - **aggregation-service**: pure read API, no Kafka involvement at all (no Kafka dependency in its pom). Reads `transactions` table only (`ddl-auto=none`, no writes). Endpoints: `/aggregations/{accountId}/summary|trend|totals|merchants|status-summary|transactions`, plus multi-account `/aggregations/summary?accountIds=...`. Access is either staff (`account-read`/`account-admin`) or self-service owner (`account-owner` + `account_ids` claim match via `AccountAccessGuard`).
 
+  **Known issue**: every endpoint here except `/trend` (a native query) throws `could not determine data type of parameter` from Postgres when called without `from`/`to` — the JPQL `(:from IS NULL OR t.timestamp >= :from)` pattern gives Postgres's extended query protocol no type to infer for a null-valued parameter. `/trend`'s native query already works around this with `CAST(:from AS timestamp)`; the same fix was never applied to `AggregationRepository`'s other four queries. Since `from`/`to` are optional on every endpoint, this hits on the common case, not an edge case.
+
 ## Database
 
 Single Postgres instance, single database `transactions` (host port 5432). Schema created by [postgres/init.sql](postgres/init.sql):
@@ -67,9 +110,12 @@ Realm `financial-platform`, port 8180 (host) / 8080 (container). Realm import fr
 - **api-gateway** sits in front and accepts `azp` in `{ingestion-service, processing-service, aggregation-service, customer-portal}` — the union of everything the three routed services individually accept. This is a cheap early reject, not a trust boundary change: each backend still runs its own strict `azp`/role check on the forwarded request.
 - Roles: `processing-service` → `account-admin`, `account-read`; `ingestion-service` → `transaction-ingest`; `aggregation-service` → `transaction-aggregate`, `account-read`, `account-admin`; `customer-portal` → `account-owner`.
 - Client-scope `account-access` maps user attribute `account_ids` into token claim `account_ids`, used for owner-level self-service checks (`AccountAccessGuard`).
+- Client-scope `roles` (`oidc-usermodel-client-role-mapper`) is what actually puts `resource_access.<client>.roles` on a token — required by every `SecurityConfig`'s role check in this repo. `realm-export.json` is a hand-authored partial realm, not a full Keycloak export, so this scope isn't created for free the way it would be in a realm Keycloak provisioned itself; it has to be defined explicitly and referenced via each client's `defaultClientScopes`.
 - `/actuator/health` is `permitAll` on all 4 app services (everything else stays behind JWT auth) — needed so k8s liveness/readiness probes, which can't present a token, don't crash-loop the pods. configserver has no way to do the same cleanly (default Spring Security basic-auth-everything, no custom `SecurityConfig`), so its Helm chart uses a `tcpSocket` probe instead — same workaround the docker-compose healthcheck already used.
 
 **Known issue**: the `aggregation-service` client secret in realm-export.json is identical to `processing-service`'s secret (copy/paste, not intentional shared-secret design). Combined with aggregation-service accepting multiple `azp` values, this weakens the intended service-to-service isolation — worth a fix.
+
+**Known issue**: `demo-customer` password-grant login fails with `invalid_grant: Account is not fully set up` — some required action is implicitly defaulting to enabled for realm users despite `"temporary": false` on the credential. Not yet root-caused; blocks testing the `customer-portal`/`account-owner` self-service path end-to-end.
 
 ## Config Server
 

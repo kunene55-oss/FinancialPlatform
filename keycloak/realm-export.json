@@ -11,7 +11,8 @@
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "clientAuthenticatorType": "client-secret"
+      "clientAuthenticatorType": "client-secret",
+      "defaultClientScopes": ["roles"]
     },
     {
       "clientId": "processing-service",
@@ -22,7 +23,8 @@
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "clientAuthenticatorType": "client-secret"
+      "clientAuthenticatorType": "client-secret",
+      "defaultClientScopes": ["roles"]
     },
     {
       "clientId": "aggregation-service",
@@ -33,7 +35,8 @@
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "clientAuthenticatorType": "client-secret"
+      "clientAuthenticatorType": "client-secret",
+      "defaultClientScopes": ["roles"]
     },
     {
       "clientId": "customer-portal",
@@ -50,6 +53,25 @@
     }
   ],
   "clientScopes": [
+    {
+      "name": "roles",
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "client roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "config": {
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "claim.name": "resource_access.${client_id}.roles",
+            "jsonType.label": "String",
+            "usermodel.clientRoleMapping.clientId": ""
+          }
+        }
+      ]
+    },
     {
       "name": "account-access",
       "protocol": "openid-connect",

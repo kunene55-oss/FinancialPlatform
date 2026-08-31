@@ -66,3 +66,45 @@ placement, extra env, etc).
 
 `api-gateway`'s `values-*.yaml` ingress host is a placeholder domain —
 change it before installing anywhere real.
+
+## CI/CD
+
+[.github/workflows/deploy.yml](../.github/workflows/deploy.yml) builds every
+service, pushes images to `ghcr.io/<repo>/<service>`, then runs the "First-time
+setup" secret creation above and `helm upgrade --install` automatically —
+branch decides environment:
+
+| Branch | Environment |
+|---|---|
+| `develop` | `dev` |
+| `qa` | `qa` |
+| `main` | `prod` |
+
+That mapping is resolved once, in the workflow's `resolve-env` job — nothing
+else in the file hard-codes it. `configserver` deploys and must pass its
+`--wait` before the app services deploy (their `spring.config.import` for it
+is `optional:`, so a down configserver doesn't fail their pod, it just leaves
+required properties like `issuer-uri` unresolved and crash-loops them).
+
+Requires these configured as **GitHub Environment secrets** — one set per
+`dev`/`qa`/`prod` environment in repo Settings → Environments, so a `qa`
+credential can never leak into a `prod` deploy:
+
+| Secret | Used for |
+|---|---|
+| `KUBE_CONFIG` | base64-encoded kubeconfig for that environment's cluster |
+| `CONFIGSERVER_PASSWORD` | the `configserver-credentials` Secret (basic-auth password) |
+| `INGESTION_VAULT_ROLE_ID` / `INGESTION_VAULT_SECRET_ID` | `ingestion-service`'s AppRole creds |
+| `PROCESSING_VAULT_ROLE_ID` / `PROCESSING_VAULT_SECRET_ID` | `processing-service`'s AppRole creds |
+| `AGGREGATION_VAULT_ROLE_ID` / `AGGREGATION_VAULT_SECRET_ID` | `aggregation-service`'s AppRole creds |
+
+`api-gateway` needs neither Vault secret (it has no DB). Set each
+environment's "Deployment branches and tags" restriction (e.g. `prod` →
+only `main`) so a workflow bug can't deploy the wrong branch to the wrong
+cluster even if `resolve-env` is ever wrong.
+
+Image tags: every build pushes both `:<commit-sha>` (immutable, what actually
+gets deployed via `--set image.tag=$GITHUB_SHA`) and `:<env>` (floating,
+convenience for manual `docker pull`) — the `values-*.yaml` `image.tag`
+placeholders are only the fallback for a manual `helm install` without that
+override.

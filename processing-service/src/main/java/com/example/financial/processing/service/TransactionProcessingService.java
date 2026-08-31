@@ -22,6 +22,7 @@ public class TransactionProcessingService {
 
     @Transactional
     public void processTransaction(TransactionReceivedEvent event) {
+        log.info("Processing transaction event: {}", event);
         var existing = repo.findByTransactionId(event.getTransactionId());
         if (existing.isPresent()) {
             var entity = existing.get();
@@ -45,6 +46,7 @@ public class TransactionProcessingService {
                 .transferId(event.getTransferId())
                 .build();
             repo.save(entity);
+            log.info("Transaction {} marked as FAILED due to invalid amount", event.getTransactionId());
             return;
         }
 
@@ -58,6 +60,7 @@ public class TransactionProcessingService {
             .transferId(event.getTransferId())
             .build();
         repo.save(entity);
+        log.info("Transaction {} is not processing", event.getTransferId());
         accountService.processTransaction(entity);
     }
 }

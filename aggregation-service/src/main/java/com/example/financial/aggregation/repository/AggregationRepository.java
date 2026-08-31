@@ -19,8 +19,8 @@ public interface AggregationRepository extends JpaRepository<TransactionEntity, 
         SELECT t.category, SUM(t.amount)
         FROM TransactionEntity t
         WHERE t.accountId = :accountId AND t.status = 'PROCESSED'
-        AND (:from IS NULL OR t.timestamp >= :from)
-        AND (:to IS NULL OR t.timestamp <= :to)
+        AND (CAST(:from AS timestamp) IS NULL OR t.timestamp >= :from)
+        AND (CAST(:to AS timestamp) IS NULL OR t.timestamp <= :to)
         GROUP BY t.category
         """)
     List<Object[]> summarizeAccountHistory(@Param("accountId") String accountId,
@@ -45,8 +45,8 @@ public interface AggregationRepository extends JpaRepository<TransactionEntity, 
         SELECT t.merchant, SUM(t.amount), COUNT(t)
         FROM TransactionEntity t
         WHERE t.accountId = :accountId AND t.status = 'PROCESSED'
-        AND (:from IS NULL OR t.timestamp >= :from)
-        AND (:to IS NULL OR t.timestamp <= :to)
+        AND (CAST(:from AS timestamp) IS NULL OR t.timestamp >= :from)
+        AND (CAST(:to AS timestamp) IS NULL OR t.timestamp <= :to)
         GROUP BY t.merchant
         ORDER BY SUM(t.amount) DESC
         """,
@@ -54,8 +54,8 @@ public interface AggregationRepository extends JpaRepository<TransactionEntity, 
         SELECT COUNT(DISTINCT t.merchant)
         FROM TransactionEntity t
         WHERE t.accountId = :accountId AND t.status = 'PROCESSED'
-        AND (:from IS NULL OR t.timestamp >= :from)
-        AND (:to IS NULL OR t.timestamp <= :to)
+        AND (CAST(:from AS timestamp) IS NULL OR t.timestamp >= :from)
+        AND (CAST(:to AS timestamp) IS NULL OR t.timestamp <= :to)
         """)
     Page<Object[]> merchantBreakdown(@Param("accountId") String accountId,
                                       @Param("from") Instant from,
@@ -66,8 +66,8 @@ public interface AggregationRepository extends JpaRepository<TransactionEntity, 
         SELECT t.status, SUM(t.amount), COUNT(t)
         FROM TransactionEntity t
         WHERE t.accountId = :accountId
-        AND (:from IS NULL OR t.timestamp >= :from)
-        AND (:to IS NULL OR t.timestamp <= :to)
+        AND (CAST(:from AS timestamp) IS NULL OR t.timestamp >= :from)
+        AND (CAST(:to AS timestamp) IS NULL OR t.timestamp <= :to)
         GROUP BY t.status
         """)
     List<Object[]> statusBreakdown(@Param("accountId") String accountId,
@@ -77,8 +77,8 @@ public interface AggregationRepository extends JpaRepository<TransactionEntity, 
     @Query("""
         SELECT t FROM TransactionEntity t
         WHERE t.accountId = :accountId
-        AND (:from IS NULL OR t.timestamp >= :from)
-        AND (:to IS NULL OR t.timestamp <= :to)
+        AND (CAST(:from AS timestamp) IS NULL OR t.timestamp >= :from)
+        AND (CAST(:to AS timestamp) IS NULL OR t.timestamp <= :to)
         ORDER BY t.timestamp DESC
         """)
     Page<TransactionEntity> findByAccount(@Param("accountId") String accountId,
@@ -90,8 +90,8 @@ public interface AggregationRepository extends JpaRepository<TransactionEntity, 
         SELECT t.accountId, SUM(t.amount)
         FROM TransactionEntity t
         WHERE t.accountId IN :accountIds AND t.status = 'PROCESSED'
-        AND (:from IS NULL OR t.timestamp >= :from)
-        AND (:to IS NULL OR t.timestamp <= :to)
+        AND (CAST(:from AS timestamp) IS NULL OR t.timestamp >= :from)
+        AND (CAST(:to AS timestamp) IS NULL OR t.timestamp <= :to)
         GROUP BY t.accountId
         """)
     List<Object[]> summarizeAccounts(@Param("accountIds") List<String> accountIds,

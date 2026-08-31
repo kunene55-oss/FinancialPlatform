@@ -1,0 +1,200 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [develop, qa, main]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ghcr.io/${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Maps the pushed branch to a deployment environment. This is the only
+  # place the branch -> environment association is decided; every other
+  # job just consumes resolve-env.outputs.env.
+  # ---------------------------------------------------------------------
+  resolve-env:
+    runs-on: ubuntu-latest
+    outputs:
+      env: ${{ steps.map.outputs.env }}
+    steps:
+      - id: map
+        run: |
+          case "${{ github.ref_name }}" in
+            develop) echo "env=dev" >> "$GITHUB_OUTPUT" ;;
+            qa)      echo "env=qa" >> "$GITHUB_OUTPUT" ;;
+            main)    echo "env=prod" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::No environment mapping for branch '${{ github.ref_name }}'"
+              exit 1
+              ;;
+          esac
+
+  build-common:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+      - name: Build and install common_module
+        working-directory: common_module
+        run: ./mvnw -B -q -DskipTests install
+      - name: Cache common_module for downstream jobs
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.m2/repository/com/example/financial/common_module
+          key: common-module-${{ github.sha }}
+
+  build-push:
+    needs: [resolve-env, build-common]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - ingestion-service
+          - processing-service
+          - aggregation-service
+          - configserver
+          - api-gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+      - name: Restore common_module
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.m2/repository/com/example/financial/common_module
+          key: common-module-${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Package ${{ matrix.service }}
+        working-directory: ${{ matrix.service }}
+        run: ./mvnw -B -q -DskipTests package
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_BASE }}/${{ matrix.service }}:${{ github.sha }}
+            ${{ env.IMAGE_BASE }}/${{ matrix.service }}:${{ needs.resolve-env.outputs.env }}
+
+  # ---------------------------------------------------------------------
+  # configserver goes first and must be healthy before the app services -
+  # their spring.config.import for it is "optional:" so a missing
+  # configserver doesn't fail their pod startup, but it does leave
+  # required properties (issuer-uri, kafka bootstrap-servers, ...)
+  # unresolved and crash-loops them. See helm/README.md.
+  # ---------------------------------------------------------------------
+  deploy-configserver:
+    needs: [resolve-env, build-push]
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.resolve-env.outputs.env }}
+    env:
+      TARGET_ENV: ${{ needs.resolve-env.outputs.env }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+
+      - name: Ensure namespace exists
+        run: |
+          kubectl create namespace "$TARGET_ENV" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Ensure configserver-credentials secret
+        run: |
+          kubectl create secret generic configserver-credentials \
+            --namespace "$TARGET_ENV" \
+            --from-literal=password='${{ secrets.CONFIGSERVER_PASSWORD }}' \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: helm dependency build
+        run: helm dependency build ./helm/configserver
+
+      - name: Deploy configserver
+        run: |
+          helm upgrade --install configserver ./helm/configserver \
+            -f ./helm/configserver/values-${TARGET_ENV}.yaml \
+            --namespace "$TARGET_ENV" \
+            --set image.repository=${{ env.IMAGE_BASE }}/configserver \
+            --set image.tag=${{ github.sha }} \
+            --wait --timeout 5m
+
+  deploy-services:
+    needs: [resolve-env, deploy-configserver]
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.resolve-env.outputs.env }}
+    env:
+      TARGET_ENV: ${{ needs.resolve-env.outputs.env }}
+    strategy:
+      matrix:
+        include:
+          - service: ingestion-service
+            secretPrefix: INGESTION
+            vault: true
+          - service: processing-service
+            secretPrefix: PROCESSING
+            vault: true
+          - service: aggregation-service
+            secretPrefix: AGGREGATION
+            vault: true
+          - service: api-gateway
+            secretPrefix: ""
+            vault: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+
+      - name: Ensure vault-approle secret
+        if: matrix.vault == true
+        run: |
+          kubectl create secret generic "${{ matrix.service }}-vault-approle" \
+            --namespace "$TARGET_ENV" \
+            --from-literal=role-id='${{ secrets[format('{0}_VAULT_ROLE_ID', matrix.secretPrefix)] }}' \
+            --from-literal=secret-id='${{ secrets[format('{0}_VAULT_SECRET_ID', matrix.secretPrefix)] }}' \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: helm dependency build
+        run: helm dependency build ./helm/${{ matrix.service }}
+
+      - name: Deploy ${{ matrix.service }}
+        run: |
+          helm upgrade --install ${{ matrix.service }} ./helm/${{ matrix.service }} \
+            -f ./helm/${{ matrix.service }}/values-${TARGET_ENV}.yaml \
+            --namespace "$TARGET_ENV" \
+            --set image.repository=${{ env.IMAGE_BASE }}/${{ matrix.service }} \
+            --set image.tag=${{ github.sha }} \
+            --wait --timeout 5m

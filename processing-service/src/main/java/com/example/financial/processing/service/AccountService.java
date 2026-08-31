@@ -98,6 +98,7 @@ public class AccountService {
    
     @Transactional
     public void processTransaction(final TransactionEntity entity) {
+        log.info("Processing transaction entity for accountId: {}", entity.getAccountId());
         var client = clientRepo.findByAccountIdForUpdate(entity.getAccountId()).orElse(null);
         if (client == null) {
             log.error("Client does not exist, transaction cannot be processed");
@@ -182,6 +183,7 @@ public class AccountService {
                     .timestamp(entity.getTimestamp())
                     .build();
                 repo.save(creditEntity);
+                log.info("Transfer transaction {} processed successfully, credited to account {}", entity.getTransactionId(), receivingClient.getAccountId());
                 break;
             }
             case TransactionType.WITHDRAWAL: {
@@ -196,6 +198,7 @@ public class AccountService {
                 clientRepo.save(client);
                 entity.setStatus(TransactionStatus.PROCESSED);
                 repo.save(entity);
+                log.info("Withdrawal transaction {} processed successfully for account {}", entity.getTransactionId(), entity.getAccountId());
                 break;
             }
             case TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT: {
