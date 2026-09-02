@@ -125,9 +125,15 @@ jobs:
       - uses: azure/setup-helm@v4
 
       - name: Configure kubectl
+        env:
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG }}
         run: |
+          if [ -z "$KUBE_CONFIG_B64" ]; then
+            echo "::error::KUBE_CONFIG secret is not set for environment '$TARGET_ENV' - add it under Settings > Environments > $TARGET_ENV before this job can deploy."
+            exit 1
+          fi
           mkdir -p "$HOME/.kube"
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+          echo "$KUBE_CONFIG_B64" | base64 -d > "$HOME/.kube/config"
 
       - name: Ensure namespace exists
         run: |
@@ -135,10 +141,16 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Ensure configserver-credentials secret
+        env:
+          CONFIGSERVER_PASSWORD: ${{ secrets.CONFIGSERVER_PASSWORD }}
         run: |
+          if [ -z "$CONFIGSERVER_PASSWORD" ]; then
+            echo "::error::CONFIGSERVER_PASSWORD secret is not set for environment '$TARGET_ENV' - add it under Settings > Environments > $TARGET_ENV before this job can deploy."
+            exit 1
+          fi
           kubectl create secret generic configserver-credentials \
             --namespace "$TARGET_ENV" \
-            --from-literal=password='${{ secrets.CONFIGSERVER_PASSWORD }}' \
+            --from-literal=password="$CONFIGSERVER_PASSWORD" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: helm dependency build
@@ -180,17 +192,30 @@ jobs:
       - uses: azure/setup-helm@v4
 
       - name: Configure kubectl
+        env:
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG }}
         run: |
+          if [ -z "$KUBE_CONFIG_B64" ]; then
+            echo "::error::KUBE_CONFIG secret is not set for environment '$TARGET_ENV' - add it under Settings > Environments > $TARGET_ENV before this job can deploy."
+            exit 1
+          fi
           mkdir -p "$HOME/.kube"
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+          echo "$KUBE_CONFIG_B64" | base64 -d > "$HOME/.kube/config"
 
       - name: Ensure vault-approle secret
         if: matrix.vault == true
+        env:
+          VAULT_ROLE_ID: ${{ secrets[format('{0}_VAULT_ROLE_ID', matrix.secretPrefix)] }}
+          VAULT_SECRET_ID: ${{ secrets[format('{0}_VAULT_SECRET_ID', matrix.secretPrefix)] }}
         run: |
+          if [ -z "$VAULT_ROLE_ID" ] || [ -z "$VAULT_SECRET_ID" ]; then
+            echo "::error::${{ matrix.secretPrefix }}_VAULT_ROLE_ID / ${{ matrix.secretPrefix }}_VAULT_SECRET_ID secrets are not set for environment '$TARGET_ENV' - add them under Settings > Environments > $TARGET_ENV before this job can deploy."
+            exit 1
+          fi
           kubectl create secret generic "${{ matrix.service }}-vault-approle" \
             --namespace "$TARGET_ENV" \
-            --from-literal=role-id='${{ secrets[format('{0}_VAULT_ROLE_ID', matrix.secretPrefix)] }}' \
-            --from-literal=secret-id='${{ secrets[format('{0}_VAULT_SECRET_ID', matrix.secretPrefix)] }}' \
+            --from-literal=role-id="$VAULT_ROLE_ID" \
+            --from-literal=secret-id="$VAULT_SECRET_ID" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: helm dependency build

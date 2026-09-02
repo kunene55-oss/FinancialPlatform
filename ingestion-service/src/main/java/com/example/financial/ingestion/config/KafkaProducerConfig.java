@@ -3,7 +3,10 @@ package com.example.financial.ingestion.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.config.TopicConfig;
+import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.*;
 import com.example.financial.common.event.TransactionReceivedEvent;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -17,6 +20,15 @@ public class KafkaProducerConfig {
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
+
+    @Bean
+    public NewTopic transactionsRawTopic() {
+        return TopicBuilder.name("transactions.raw")
+                .partitions(1)
+                .replicas(3)
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "2")
+                .build();
+    }
 
     @Bean
     public ProducerFactory<String, TransactionReceivedEvent> producerFactory() {

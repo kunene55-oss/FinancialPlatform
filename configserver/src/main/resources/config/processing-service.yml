@@ -8,7 +8,7 @@ spring:
       ddl-auto: validate
 
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: kafka-1:9092,kafka-2:9092,kafka-3:9092
     consumer:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
