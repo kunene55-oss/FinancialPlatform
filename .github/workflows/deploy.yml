@@ -67,12 +67,25 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service:
-          - ingestion-service
-          - processing-service
-          - aggregation-service
-          - configserver
-          - api-gateway
+        include:
+          # These three build against common_module, so the Dockerfile
+          # COPYs assume repo-root context (see docker-compose.yaml).
+          - service: ingestion-service
+            context: .
+            dockerfile: ingestion-service/Dockerfile
+          - service: processing-service
+            context: .
+            dockerfile: processing-service/Dockerfile
+          - service: aggregation-service
+            context: .
+            dockerfile: aggregation-service/Dockerfile
+          # Self-contained: Dockerfile does COPY . . expecting its own dir.
+          - service: configserver
+            context: configserver
+            dockerfile: configserver/Dockerfile
+          - service: api-gateway
+            context: api-gateway
+            dockerfile: api-gateway/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -100,7 +113,8 @@ jobs:
 
       - uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.service }}
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: |
             ${{ needs.resolve-env.outputs.image_base }}/${{ matrix.service }}:${{ github.sha }}
