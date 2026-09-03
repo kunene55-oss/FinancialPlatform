@@ -24,7 +24,7 @@ public class KafkaProducerConfig {
     @Bean
     public NewTopic transactionsRawTopic() {
         return TopicBuilder.name("transactions.raw")
-                .partitions(1)
+                .partitions(6)
                 .replicas(3)
                 .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "2")
                 .build();

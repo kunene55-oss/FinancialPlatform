@@ -40,7 +40,7 @@ public class TransactionProcessingService {
             var entity = TransactionEntity.builder()
                 .transactionId(event.getTransactionId())
                 .accountId(event.getAccountId())
-                .amount(event.getAmount())
+                .amount(event.getAmount() != null ? event.getAmount() : BigDecimal.ZERO)
                 .category(event.getType())
                 .status(TransactionStatus.FAILED)
                 .transferId(event.getTransferId())

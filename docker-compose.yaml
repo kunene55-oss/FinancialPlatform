@@ -220,8 +220,8 @@ services:
       - configserver_password
     volumes:
       - vault-approle:/vault/approle:ro
-    ports:
-      - "8081:8080"
+    expose:
+      - "8080"
 
   processing-service:
     build:
@@ -250,8 +250,8 @@ services:
       - configserver_password
     volumes:
       - vault-approle:/vault/approle:ro
-    ports:
-      - "8082:8080"
+    expose:
+      - "8080"
 
   aggregation-service:
     build:
@@ -274,8 +274,8 @@ services:
       - configserver_password
     volumes:
       - vault-approle:/vault/approle:ro
-    ports:
-      - "8083:8080"
+    expose:
+      - "8080"
 
   api-gateway:
     build: ./api-gateway
