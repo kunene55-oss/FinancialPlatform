@@ -9,7 +9,6 @@ import com.example.financial.common.type.TransactionStatus;
 import jakarta.persistence.EntityNotFoundException;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -73,51 +72,49 @@ public class AccountServiceTest {
     }
 
     //Successful delete
-    /*@Test
-    @Disabled("Disabled until the deleteAccount method is fixed to handle deletion properly")
+    @Test
     void deleteAccount_shouldDelete_whenClientExists() {
-        when(clientRepo.findByIdNumber(123L)).thenReturn(Optional.of(client));
+        when(clientRepo.findByAccountId("ACC123")).thenReturn(Optional.of(client));
         accountService.deleteAccount("ACC123");
         verify(clientRepo).delete(client);
-    }*/
+    }
 
     //Null/blank test
     @Test
     void deleteAccount_shouldThrowException_whenInvalidId() {
-        assertThrows(IllegalArgumentException.class, 
+        assertThrows(IllegalArgumentException.class,
             () -> accountService.deleteAccount(""));
     }
 
     //Delete null
     @Test
     void deleteAccount_shouldThrowException_whenNotFound() {
-        when(clientRepo.findByIdNumber(123L)).thenReturn(Optional.empty());
+        when(clientRepo.findByAccountId("ACC123")).thenReturn(Optional.empty());
         assertThrows(EntityNotFoundException.class,
             () -> accountService.deleteAccount("ACC123"));
     }
 
     //Update Account status
-    /*@Test
+    @Test
     void updateAccountStatus_shouldUpdate_whenValid() {
-        when(clientRepo.findByIdNumber(123L)).thenReturn(Optional.of(client));
+        when(clientRepo.findByAccountId("ACC123")).thenReturn(Optional.of(client));
         accountService.updateAccountStatus("ACC123", AccountStatus.CLOSED);
         assertEquals(AccountStatus.CLOSED, client.getAccountStatus());
         verify(clientRepo).save(client);
-    }*/
+    }
 
     //Update to same status
-    /*@Test
-    @Disabled("Disabled until the updateAccountStatus method is fixed to handle same status updates")
-    void updateACcountStatus_shouldThrowException_whenSameStatus() {
-        when(clientRepo.findByIdNumber(123L)).thenReturn(Optional.of(client));
-        assertThrows(DataIntegrityViolationException.class,
+    @Test
+    void updateAccountStatus_shouldThrowException_whenSameStatus() {
+        when(clientRepo.findByAccountId("ACC123")).thenReturn(Optional.of(client));
+        assertThrows(IllegalStateException.class,
             () -> accountService.updateAccountStatus("ACC123", AccountStatus.OPEN));
-    }*/
+    }
 
     //Update not found
     @Test
     void updateAccountStatus_shouldThrow_whenClientNotFound() {
-        when(clientRepo.findByIdNumber(123L)).thenReturn(Optional.of(client));
+        when(clientRepo.findByAccountId("ACC123")).thenReturn(Optional.empty());
         assertThrows(EntityNotFoundException.class,
             () -> accountService.updateAccountStatus("ACC123", AccountStatus.OPEN));
     }
