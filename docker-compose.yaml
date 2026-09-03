@@ -194,7 +194,9 @@ services:
       retries: 30
 
   ingestion-service:
-    build: ./ingestion-service
+    build:
+      context: .
+      dockerfile: ingestion-service/Dockerfile
     restart: unless-stopped
     depends_on:
       kafka-1:
@@ -222,7 +224,9 @@ services:
       - "8081:8080"
 
   processing-service:
-    build: ./processing-service
+    build:
+      context: .
+      dockerfile: processing-service/Dockerfile
     restart: unless-stopped
     depends_on:
       kafka-1:
@@ -250,7 +254,9 @@ services:
       - "8082:8080"
 
   aggregation-service:
-    build: ./aggregation-service
+    build:
+      context: .
+      dockerfile: aggregation-service/Dockerfile
     restart: unless-stopped
     depends_on:
       keycloak:

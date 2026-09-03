@@ -14,21 +14,15 @@ cp secrets/configserver_password.txt.example secrets/configserver_password.txt
 # edit each to a real value
 ```
 
-**2. Build the jars.** The Dockerfiles `COPY` a pre-built jar rather than doing a multi-stage Maven build, so package everything before `docker compose build` — `common_module` first, the other five depend on it:
-```bash
-(cd common_module && ./mvnw -q -DskipTests install)
-for svc in ingestion-service processing-service aggregation-service configserver api-gateway; do
-  (cd "$svc" && ./mvnw -q -DskipTests package)
-done
-```
-
-**3. Start everything:**
+**2. Start everything:**
 ```bash
 docker compose up -d --build
 ```
+Every service's `Dockerfile` is a multi-stage build — it compiles from source (installing `common_module` first, then packaging the service) inside the image itself, so `--build` alone always reflects whatever's on disk. No separate `mvnw` step needed. First build per service takes a few minutes (empty `.m2` cache inside the build stage); subsequent builds are fast via Docker layer caching unless that service's or `common_module`'s source changed.
+
 `vault-init` occasionally races Postgres's first-boot restart cycle (the official Postgres image runs initdb, then restarts once — `pg_isready` can report healthy in the gap) and exits with an error on a *completely fresh* volume. If that happens, Postgres is already stable by then — just rerun `docker compose up -d` and it goes through.
 
-**4. Verify it's up:**
+**3. Verify it's up:**
 ```bash
 docker compose ps                              # everything should be "healthy" or "Up"
 curl http://localhost:8080/actuator/health      # api-gateway
@@ -37,11 +31,42 @@ curl http://localhost:8082/actuator/health      # processing-service
 curl http://localhost:8083/actuator/health      # aggregation-service
 ```
 
-**5. Take it down:**
+**4. Take it down:**
 ```bash
 docker compose down
 ```
 Postgres data lives in the named volume `postgres-data` — survives a plain `down`, so `account_number_seq` and everything else keeps counting forward across restarts instead of resetting. Use `docker compose down -v` if you actually want a clean slate (`postgres/init.sql` only reruns then, since it's an "on first init" script). Keycloak has no persistent volume — it fully re-imports [keycloak/realm-export.json](keycloak/realm-export.json) on every fresh start, so realm state (including anything you change by hand through its UI) does *not* survive a restart.
+
+### Starting individual services
+
+`docker compose up -d --build <service>` also starts whatever that service `depends_on` (e.g. asking for `ingestion-service` brings up `kafka-1/2/3`, `keycloak`, `configserver`, `postgres`, `vault-init` too). Add `--no-deps` to start only the named service, e.g. when everything else is already running and you only touched one.
+
+| Service | Command |
+|---|---|
+| Zookeeper node | `docker compose up -d zookeeper-1` (or `-2`/`-3`) |
+| Kafka broker | `docker compose up -d --build kafka-1` (or `-2`/`-3`) |
+| Postgres | `docker compose up -d postgres` |
+| Vault | `docker compose up -d vault` |
+| Keycloak | `docker compose up -d keycloak` |
+| Config server | `docker compose up -d --build configserver` |
+| Ingestion service | `docker compose up -d --build ingestion-service` |
+| Processing service | `docker compose up -d --build processing-service` |
+| Aggregation service | `docker compose up -d --build aggregation-service` |
+| API gateway | `docker compose up -d --build api-gateway` |
+
+Useful companions: `docker compose logs -f <service>` to tail one service, `docker compose ps` for status/health.
+
+### Resource requirements
+
+The stack now runs a 3-broker Kafka cluster on a 3-node Zookeeper ensemble (see [Kafka](#kafka) below) alongside 5 JVM app services, Postgres, Keycloak, and Vault — roughly 13 JVM-ish containers. Each Kafka/Zookeeper container has an explicit `KAFKA_HEAP_OPTS` cap (512M for brokers, 256M for Zookeeper nodes) to keep the footprint reasonable, but this is still meaningfully heavier than the old single-broker setup. If `docker compose up` hangs or the Docker daemon itself becomes unresponsive partway through, it's usually the host running out of memory, not a bug in the compose file:
+- **Windows/WSL2**: increase the memory available to Docker Desktop's VM via `%UserProfile%\.wslconfig`:
+  ```ini
+  [wsl2]
+  memory=5GB
+  swap=2GB
+  ```
+  then `wsl --shutdown` and relaunch Docker Desktop to apply it. Leave enough headroom for Windows itself — don't allocate the whole host.
+- **macOS/Linux**: raise the memory limit in Docker Desktop's Resources settings (or the Linux daemon's cgroup limits) similarly.
 
 ## Services & Ports
 
@@ -55,8 +80,8 @@ Postgres data lives in the named volume `postgres-data` — survives a plain `do
 | keycloak | 8180 | 8080 | Auth (realm `financial-platform`) |
 | vault | 8200 | 8200 | Dynamic Postgres credentials via AppRole |
 | postgres | 5432 | 5432 | Single DB `transactions`, shared by all 3 services |
-| kafka | — (internal 9092) | 9092 | Event bus, `kafka:9092` inside compose network |
-| zookeeper | — | 2181 | Kafka coordination |
+| kafka-1, kafka-2, kafka-3 | — (internal 9092 each) | 9092 | 3-broker event bus, `kafka-1:9092,kafka-2:9092,kafka-3:9092` inside compose network |
+| zookeeper-1, zookeeper-2, zookeeper-3 | — | 2181 | 3-node Kafka coordination ensemble |
 
 All app services run on Spring Boot default port 8080 internally — no `server.port` override in any of them.
 
@@ -95,9 +120,12 @@ No static per-service DB users exist in init.sql. Each service instead gets **sh
 
 ## Kafka
 
-- Broker: `kafka:9092` internal (no host port published). Zookeeper-backed (`confluentinc/cp-kafka` 7.5.0), single-broker, replication factor forced to 1 (`KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR`, `KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1`) — dev/single-node only, not HA.
-- Topic `transactions.raw`: producer = ingestion-service, consumer = processing-service (`groupId=processing-service`).
+- Cluster: 3 brokers (`kafka-1`, `kafka-2`, `kafka-3`, `confluentinc/cp-kafka` 7.5.0), each internal-only on `9092`, no host port published. Coordinated by a 3-node Zookeeper ensemble (`zookeeper-1/2/3`, `confluentinc/cp-zookeeper` 7.5.0) — `ZOOKEEPER_SERVER_ID` + `ZOOKEEPER_SERVERS` peer list on each node, one leader elected among the three. Clients use the full broker list as `bootstrap-servers` (`kafka-1:9092,kafka-2:9092,kafka-3:9092`) so they can still connect if any single broker is down.
+- Replication: broker defaults `KAFKA_DEFAULT_REPLICATION_FACTOR=3` / `KAFKA_MIN_INSYNC_REPLICAS=2`, plus the same RF=3/min-ISR=2 explicitly on the internal offsets and transaction-state topics. The app topic (`transactions.raw`) doesn't rely on those defaults + auto-create — it's provisioned explicitly via a `NewTopic` bean in `ingestion-service`'s `KafkaProducerConfig` (1 partition, `replicas=3`, `min.insync.replicas=2` set at the topic level). Combined with the producer's `acks=all` + idempotence, a write is durable across the loss of one broker.
+- Still a single-host setup: HA here means broker/replica loss, not host loss — all 3 brokers run as containers on the one Docker Compose host. Genuine multi-host HA would mean a real k8s Kafka deployment (StatefulSet, PVs, pod anti-affinity) or a managed Kafka service — neither exists yet for this project (see [Deployment](#deployment)).
+- Topic `transactions.raw` (1 partition — not yet increased for consumer parallelism, a separate decision from replication): producer = ingestion-service, consumer = processing-service (`groupId=processing-service`).
 - Message contract: `TransactionReceivedEvent` from `common_module` (shared library, groupId `com.example.financial`, artifact `common_module`), JSON-serialized. aggregation-service has zero Kafka dependency.
+- **Known gap**: nothing consumes the dead-letter topic (`transactions.raw.DLT`, see below) — messages that land there just accumulate, with no reprocessing job or alerting.
 
 ## Auth (Keycloak)
 
@@ -122,7 +150,7 @@ Spring Cloud Config Server, port 8888 (internal only, no host mapping), **native
 
 Each service has a base file (`processing-service.yml`, `ingestion-service.yml`, `aggregation-service.yml`, `api-gateway.yml`) plus profile overlays (`-dev.yml`, `-qa.yml`, `-prod.yml`) that Spring Cloud Config's native resolver merges on top when the client requests that profile — standard `{application}-{profile}.yml` convention. What's in the base file vs. an overlay is a deliberate split:
 
-- **Base file, same in every environment**: datasource URL, Kafka bootstrap servers, Keycloak issuer-uri, business config (ingestion row limits, gateway route table). These use the compose-network hostnames (`postgres`, `kafka`, `keycloak`, `configserver`) and are expected to resolve identically in any environment — see [helm/README.md](helm/README.md) for why the Helm charts keep Service names matching those exact hostnames instead of templating around it.
+- **Base file, same in every environment**: datasource URL, Kafka bootstrap servers, Keycloak issuer-uri, business config (ingestion row limits, gateway route table). These use the compose-network hostnames (`postgres`, `kafka-1`/`kafka-2`/`kafka-3`, `keycloak`, `configserver`) and are expected to resolve identically in any environment — see [helm/README.md](helm/README.md) for why the Helm charts keep Service names matching those exact hostnames instead of templating around it.
 - **Profile overlay, differs per environment**: `spring.jpa.show-sql` (`true` in dev, `false` in qa/prod), `logging.level.com.example.financial` (`DEBUG`/`INFO`/`WARN`), and for `api-gateway`, `gateway.cors.allowed-origins`.
 
 Which overlay a service pulls is controlled by `SPRING_PROFILES_ACTIVE`, set per environment: `dev` hardcoded in [docker-compose.yaml](docker-compose.yaml), and an `env: [{name: SPRING_PROFILES_ACTIVE, value: <env>}]` entry in each app chart's `values-<env>.yaml` for Helm. `configserver` itself doesn't consume a profile — it's the one serving them.
@@ -148,15 +176,15 @@ Each app service's `entrypoint.sh` reads those files into `VAULT_ROLE_ID`/`VAULT
 Enforced via `depends_on` + healthchecks in [docker-compose.yaml](docker-compose.yaml):
 
 ```
-zookeeper → kafka ─┐
-postgres ──────────┼→ vault → vault-init ─┐
-configserver ───────┤                     ├→ ingestion-service, processing-service (needs kafka too)
-keycloak ───────────┘                     └→ aggregation-service (no kafka dependency)
-                                                          ↓
-                                                     api-gateway
+zookeeper-1/2/3 → kafka-1/2/3 (all 3 healthy) ─┐
+postgres ────────────────────────────────────┼→ vault → vault-init ─┐
+configserver ─────────────────────────────────┤                     ├→ ingestion-service, processing-service (need all 3 kafka brokers too)
+keycloak ─────────────────────────────────────┘                     └→ aggregation-service (no kafka dependency)
+                                                                                     ↓
+                                                                                api-gateway
 ```
 
-`vault-init` must reach `service_completed_successfully` before any app service starts, since they all need the AppRole credential files it writes. `api-gateway` waits on `keycloak` + `configserver` (healthy) and the three app services (started) — it has no DB/Vault dependency of its own.
+`vault-init` must reach `service_completed_successfully` before any app service starts, since they all need the AppRole credential files it writes. `ingestion-service` and `processing-service` wait on all 3 Kafka brokers being `service_healthy`, not just one. `api-gateway` waits on `keycloak` + `configserver` (healthy) and the three app services (started) — it has no DB/Vault dependency of its own.
 
 ## Deployment
 
